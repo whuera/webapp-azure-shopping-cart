@@ -1,0 +1,10 @@
+node_modules
+.next
+.vscode
+dist
+build
+.env
+.env.local
+.DS_Store
+push_error.txt
+coverage

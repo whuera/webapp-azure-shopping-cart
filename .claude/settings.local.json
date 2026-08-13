@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(curl:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(npm install *)",
+      "Bash(git checkout *)",
+      "Bash(git push *)",
+      "Bash(curl -s -X GET \"https://app-mcp-a5fa1b390712.herokuapp.com/api/products\" -H \"Accept: application/json\")",
+      "Bash(npx tsc *)",
+      "Bash(git add *)"
     ]
   }
 }

@@ -39,7 +39,7 @@ export interface Product {
   tracksInventory?: boolean; stock?: number;
   minStock?: number; maxStock?: number;
   taxRate?: number; taxExempt?: boolean;
-  taxClassification?: string;
+  taxClassification?: string; imageUrl?: string;
   createdAt?: string; updatedAt?: string;
 }
 

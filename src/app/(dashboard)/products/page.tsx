@@ -13,6 +13,7 @@ const EMPTY_PRODUCT: Partial<Product> = {
   name: "", description: "", price: 0, costPrice: 0,
   sku: "", productType: "PHYSICAL", unitOfMeasure: "UND",
   taxRate: 0, stock: 0, minStock: 0, tracksInventory: true,
+  imageUrl: "",
 };
 
 export default function ProductsPage() {
@@ -76,9 +77,19 @@ export default function ProductsPage() {
   const columns: Column<Product>[] = [
     { key: "name", label: "Producto", render: p => (
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-blue-500/15 border border-blue-500/20 flex items-center justify-center">
-          <Package className="w-4 h-4 text-blue-400" />
-        </div>
+        {p.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={p.imageUrl}
+            alt={p.name}
+            className="w-8 h-8 rounded-lg object-cover border border-white/10"
+            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
+        ) : (
+          <div className="w-8 h-8 rounded-lg bg-blue-500/15 border border-blue-500/20 flex items-center justify-center">
+            <Package className="w-4 h-4 text-blue-400" />
+          </div>
+        )}
         <div>
           <p className="font-medium text-white">{p.name}</p>
           <p className="text-xs text-slate-500">{p.sku ?? "—"}</p>
@@ -225,6 +236,26 @@ export default function ProductsPage() {
             <label className="label">Tasa impuesto (%)</label>
             <input type="number" className="input" value={form.taxRate ?? 0}
               onChange={e => setForm(p => ({ ...p, taxRate: Number(e.target.value) }))} />
+          </div>
+
+          <div className="col-span-2">
+            <label className="label">URL de imagen</label>
+            <div className="flex items-center gap-3">
+              {form.imageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={form.imageUrl}
+                  alt="Vista previa"
+                  className="w-12 h-12 rounded-lg object-cover border border-white/10 shrink-0"
+                  onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              )}
+              <input
+                type="url" className="input" placeholder="https://ejemplo.com/imagen.jpg"
+                value={form.imageUrl ?? ""}
+                onChange={e => setForm(p => ({ ...p, imageUrl: e.target.value }))}
+              />
+            </div>
           </div>
 
           <div className="col-span-2">

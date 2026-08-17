@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import clsx from "clsx";
 import {
   LayoutDashboard, Package, Warehouse, ReceiptText,
-  BookOpen, Users2, Users, ShoppingCart, LogOut, ChevronRight,
+  BookOpen, Users2, Users, ShoppingCart, LogOut, ChevronRight, ClipboardList,
 } from "lucide-react";
 
 const NAV = [
@@ -13,6 +13,7 @@ const NAV = [
   { href: "/products", label: "Productos", icon: Package },
   { href: "/inventory", label: "Inventario", icon: Warehouse },
   { href: "/sales", label: "Ventas", icon: ReceiptText },
+  { href: "/orders", label: "Pedidos", icon: ClipboardList },
   { href: "/accounting", label: "Contabilidad", icon: BookOpen },
   { href: "/crm", label: "CRM", icon: Users2 },
   { href: "/users", label: "Usuarios", icon: Users },

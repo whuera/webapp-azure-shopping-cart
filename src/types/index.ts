@@ -151,6 +151,56 @@ export interface FixedAsset {
   status?: string;
 }
 
+// ── Orders ────────────────────────────────────────────────────────────────────
+// Status without prefix (created from CRM) + with ORDER_ prefix (from ecommerce channel)
+export type OrderStatus =
+  | "PENDING"   | "ORDER_PENDING"
+  | "CONFIRMED" | "ORDER_CONFIRMED"
+  | "PREPARING" | "ORDER_PREPARING"
+  | "DISPATCHED"| "ORDER_DISPATCHED"
+  | "SHIPPED"   | "ORDER_SHIPPED"
+  | "IN_TRANSIT"| "ORDER_IN_TRANSIT"
+  | "DELIVERED" | "ORDER_DELIVERED"
+  | "CANCELLED" | "ORDER_CANCELLED"
+  | "RETURNED"  | "ORDER_RETURNED";
+
+export interface OrderItem {
+  id: number; product: Product;
+  quantity: number; unitPrice: number;
+  discount: number; subtotal: number;
+}
+export interface Order {
+  id: number; orderNumber: string;
+  customer: Customer; warehouse?: Warehouse;
+  items: OrderItem[];
+  subtotal: number; taxRate: number;
+  tax: number; total: number;
+  status: OrderStatus;
+  paymentMethod?: string;
+  shippingAddress?: string;
+  trackingCode?: string; carrier?: string;
+  estimatedDelivery?: string;
+  canal?: string; appsource?: string;
+  invoiceId?: number; invoiceNumber?: string;
+  notes?: string; createdBy?: string;
+  createdAt: string; updatedAt?: string;
+}
+export interface OrderTracking {
+  id: number; status: OrderStatus;
+  notes?: string; createdBy?: string;
+  createdAt: string;
+}
+export interface CreateOrderRequest {
+  customerId: number; warehouseId: number;
+  items: { productId: number; quantity: number }[];
+  taxRate: number; shippingAddress?: string;
+  estimatedDelivery?: string; notes?: string;
+}
+export interface UpdateOrderStatusRequest {
+  status: OrderStatus; notes?: string;
+  trackingCode?: string; carrier?: string;
+}
+
 // ── CRM ───────────────────────────────────────────────────────────────────────
 export interface CrmCompany {
   id: number; name: string; industry?: string;

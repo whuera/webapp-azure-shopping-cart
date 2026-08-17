@@ -7,6 +7,7 @@ import {
   InventoryMovementRequest, TransferRequest, ChartOfAccount,
   AccountingPeriod, JournalEntry, FixedAsset, CrmCompany, CrmContact,
   CrmPipelineStage, CrmOpportunity, CrmActivity, CrmTicket, CrmQuote,
+  Order, OrderTracking, CreateOrderRequest, UpdateOrderStatusRequest,
 } from "@/types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
@@ -174,6 +175,22 @@ export const accountingApi = {
     dispose: (id: number) =>
       http.delete<Result<FixedAsset>>(`/api/fixed-assets/${id}/dispose`).then(data),
   },
+};
+
+// ── Orders ────────────────────────────────────────────────────────────────────
+export const ordersApi = {
+  list: (params?: { status?: string; customerId?: number; from?: string; to?: string }) =>
+    http.get<Result<Order[]>>("/api/orders", { params }).then(data),
+  getById: (id: number) =>
+    http.get<Result<Order>>(`/api/orders/${id}`).then(data),
+  create: (body: CreateOrderRequest) =>
+    http.post<Result<Order>>("/api/orders", body).then(data),
+  updateStatus: (id: number, body: UpdateOrderStatusRequest) =>
+    http.put<Result<Order>>(`/api/orders/${id}/status`, body).then(data),
+  tracking: (id: number) =>
+    http.get<Result<OrderTracking[]>>(`/api/orders/${id}/tracking`).then(data),
+  byCustomer: (customerId: number) =>
+    http.get<Result<Order[]>>(`/api/orders/customer/${customerId}`).then(data),
 };
 
 // ── CRM ───────────────────────────────────────────────────────────────────────

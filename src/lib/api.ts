@@ -26,6 +26,46 @@ http.interceptors.request.use((config) => {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const data = <T>(res: AxiosResponse<Result<T>>) => res.data;
 
+// Known backend messages translated to Spanish for a consistent UI.
+// Falls back to the original message if nothing matches.
+function translateKnownMessage(message: string): string {
+  const skuExists = message.match(/Product with SKU '(.+)' already exists/i);
+  if (skuExists) return `Ya existe un producto con el SKU "${skuExists[1]}". Usa un SKU distinto.`;
+  return message;
+}
+
+/**
+ * Extracts a human-readable, Spanish message from any API error (validation
+ * 400s, conflict 409s, or unexpected 500s), so callers can show it to the
+ * user instead of letting the error crash the page.
+ */
+export function getErrorMessage(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const message = err.response?.data?.message;
+    if (typeof message === "string") {
+      // Some validation errors come back as a JSON string inside `message`,
+      // e.g. {"code":"01","messages":[{"description":"..."}]}
+      try {
+        const parsed = JSON.parse(message);
+        const descriptions = parsed?.messages?.map((m: { description?: string }) => m.description).filter(Boolean);
+        if (descriptions?.length) return descriptions.join(" ");
+      } catch {
+        // not JSON, use as-is
+      }
+      return translateKnownMessage(message);
+    }
+    // `data.error` (e.g. "Internal Server Error", "Bad Request") is Spring's
+    // generic reason phrase, not a useful message for end users — ignore it
+    // and fall back to a friendly, status-based message instead.
+    const status = err.response?.status;
+    if (status === 409) return "Ya existe un registro con ese valor. Verifica los datos e intenta de nuevo.";
+    if (status === 404) return "No se encontró el recurso solicitado.";
+    if (status === 500) return "Ocurrió un error inesperado en el servidor. Intenta nuevamente.";
+    if (!err.response) return "No se pudo conectar con el servidor. Verifica tu conexión.";
+  }
+  return "Ocurrió un error inesperado. Intenta nuevamente.";
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 export const authApi = {
   login: (body: LoginRequest) =>
@@ -59,10 +99,29 @@ export const productsApi = {
     http.post<Result<Product>>("/api", body).then(data),
   update: (id: number, body: Partial<Product>) =>
     http.put<Result<Product>>(`/api/products/${id}`, body).then(data),
+  /** Soft delete — marks the product as DELETE_PRODUCT but keeps the row (and its SKU) reserved. */
   delete: (id: number) =>
     http.delete<Result<Product>>(`/api/products/${id}`).then(data),
+  /** Hard delete — permanently removes the row from the database, freeing its SKU. Irreversible. */
+  hardDelete: (id: number) =>
+    http.delete<Result<string>>(`/api/products/${id}/hard`).then(data),
   listByType: (type: string) =>
     http.get<Result<Product[]>>(`/api/products/type/${type}`).then(data),
+  /**
+   * Looks up the product that currently owns `sku`, if any. Returns `null`
+   * when the SKU is free, or when it belongs to `excludeId` (used when
+   * editing a product so it doesn't flag its own SKU as taken).
+   */
+  checkSku: async (sku: string, excludeId?: number): Promise<Product | null> => {
+    try {
+      const res = await http.get<Result<Product>>(`/api/products/sku/${encodeURIComponent(sku)}`);
+      const owner = res.data.data;
+      return owner && owner.id !== excludeId ? owner : null;
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 404) return null;
+      throw err;
+    }
+  },
   categories: () =>
     http.get<Result<Category[]>>("/api/categories").then(data),
   createCategory: (body: Partial<Category>) =>

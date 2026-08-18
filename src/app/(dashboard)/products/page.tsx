@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/layout/Header";
 import GlassCard from "@/components/ui/GlassCard";
 import DataTable, { Column } from "@/components/ui/DataTable";
@@ -28,6 +29,8 @@ const EMPTY_PRODUCT: Partial<Product> = {
 };
 
 export default function ProductsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,6 +108,18 @@ export default function ProductsPage() {
     setForm(p); setSaveError(null); setCreatedProduct(null); setSkuCheck({ status: "idle" });
     setModal({ open: true, mode: "edit", item: p });
   };
+
+  // Supports arriving from the product detail page's "Editar" button
+  // (/products?edit=123) by auto-opening the edit modal once the list loads.
+  useEffect(() => {
+    if (loading) return;
+    const editId = searchParams.get("edit");
+    if (!editId) return;
+    const target = products.find(p => p.id === Number(editId));
+    if (target) openEdit(target);
+    router.replace("/products");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, products, searchParams]);
   const closeModal = () => {
     clearTimeout(skuDebounceRef.current);
     setModal({ open: false, mode: "create" });
@@ -273,6 +288,7 @@ export default function ProductsPage() {
           columns={columns} data={filtered} loading={loading}
           keyExtractor={p => p.id}
           emptyText="No se encontraron productos"
+          onRowClick={p => router.push(`/products/${p.id}`)}
         />
       </div>
 

@@ -1,13 +1,24 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Header from "@/components/layout/Header";
 import GlassCard from "@/components/ui/GlassCard";
 import DataTable, { Column } from "@/components/ui/DataTable";
 import Badge, { statusVariant } from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
-import { productsApi } from "@/lib/api";
+import { productsApi, getErrorMessage } from "@/lib/api";
 import { Product, Category } from "@/types";
-import { Plus, Search, Package, RefreshCw, Pencil, Trash2 } from "lucide-react";
+import {
+  Plus, Search, Package, RefreshCw, Pencil, Trash2, CheckCircle2, AlertTriangle,
+  Loader2, XCircle, Archive,
+} from "lucide-react";
+
+const SKU_CHECK_DEBOUNCE_MS = 500;
+type SkuCheckState =
+  | { status: "idle" }
+  | { status: "checking" }
+  | { status: "available" }
+  | { status: "taken"; ownerName: string }
+  | { status: "error" };
 
 const EMPTY_PRODUCT: Partial<Product> = {
   name: "", description: "", price: 0, costPrice: 0,
@@ -26,8 +37,13 @@ export default function ProductsPage() {
   });
   const [form, setForm] = useState<Partial<Product>>(EMPTY_PRODUCT);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [createdProduct, setCreatedProduct] = useState<Product | null>(null);
   const [catModal, setCatModal] = useState(false);
   const [catName, setCatName] = useState("");
+  const [skuCheck, setSkuCheck] = useState<SkuCheckState>({ status: "idle" });
+  const skuDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const skuRequestSeq = useRef(0);
 
   const load = async () => {
     setLoading(true);
@@ -41,30 +57,113 @@ export default function ProductsPage() {
   };
 
   useEffect(() => { load(); }, []);
+  useEffect(() => () => clearTimeout(skuDebounceRef.current), []);
 
   const filtered = products.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     (p.sku ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
-  const openCreate = () => { setForm(EMPTY_PRODUCT); setModal({ open: true, mode: "create" }); };
-  const openEdit = (p: Product) => { setForm(p); setModal({ open: true, mode: "edit", item: p }); };
-  const closeModal = () => setModal({ open: false, mode: "create" });
+  // Looks up whether `sku` is already taken by another product. Ignores
+  // out-of-order responses (e.g. a slow check for an earlier keystroke
+  // resolving after a newer one) via a monotonically increasing sequence id.
+  const checkSkuAvailability = useCallback(async (sku: string, excludeId?: number) => {
+    const trimmed = sku.trim();
+    clearTimeout(skuDebounceRef.current);
+    if (!trimmed) { setSkuCheck({ status: "idle" }); return; }
+    const requestId = ++skuRequestSeq.current;
+    setSkuCheck({ status: "checking" });
+    try {
+      const owner = await productsApi.checkSku(trimmed, excludeId);
+      if (requestId !== skuRequestSeq.current) return; // a newer check superseded this one
+      setSkuCheck(owner ? { status: "taken", ownerName: owner.name } : { status: "available" });
+    } catch {
+      if (requestId !== skuRequestSeq.current) return;
+      setSkuCheck({ status: "error" });
+    }
+  }, []);
+
+  // Debounced check while typing: waits for a pause in typing before hitting the API.
+  const onSkuChange = (value: string) => {
+    setForm(p => ({ ...p, sku: value }));
+    clearTimeout(skuDebounceRef.current);
+    if (!value.trim()) { setSkuCheck({ status: "idle" }); return; }
+    skuDebounceRef.current = setTimeout(
+      () => checkSkuAvailability(value, modal.item?.id),
+      SKU_CHECK_DEBOUNCE_MS
+    );
+  };
+
+  // Instant check on blur/Tab, in case the debounce hasn't fired yet.
+  const onSkuBlur = () => checkSkuAvailability(form.sku ?? "", modal.item?.id);
+
+  const openCreate = () => {
+    setForm(EMPTY_PRODUCT); setSaveError(null); setCreatedProduct(null); setSkuCheck({ status: "idle" });
+    setModal({ open: true, mode: "create" });
+  };
+  const openEdit = (p: Product) => {
+    setForm(p); setSaveError(null); setCreatedProduct(null); setSkuCheck({ status: "idle" });
+    setModal({ open: true, mode: "edit", item: p });
+  };
+  const closeModal = () => {
+    clearTimeout(skuDebounceRef.current);
+    setModal({ open: false, mode: "create" });
+    setSaveError(null); setCreatedProduct(null); setSkuCheck({ status: "idle" });
+  };
+
+  // After a successful create, reset the form and keep the modal open so
+  // the user can immediately register another product.
+  const createAnother = () => {
+    setForm(EMPTY_PRODUCT); setSaveError(null); setCreatedProduct(null); setSkuCheck({ status: "idle" });
+  };
 
   const save = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
-      if (modal.mode === "create") await productsApi.create(form);
-      else await productsApi.update(modal.item!.id, form);
-      closeModal();
-      load();
-    } finally { setSaving(false); }
+      if (modal.mode === "create") {
+        const res = await productsApi.create(form);
+        setCreatedProduct(res.data);
+        load();
+      } else {
+        await productsApi.update(modal.item!.id, form);
+        closeModal();
+        load();
+      }
+    } catch (err) {
+      setSaveError(getErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const deleteProduct = async (p: Product) => {
-    if (!confirm(`¿Eliminar "${p.name}"?`)) return;
-    await productsApi.delete(p.id);
-    load();
+  // Soft delete — just marks the product as inactive. It keeps the row (and
+  // its SKU) in the database, so it can still block a future SKU or clutter
+  // the list. Use "hardDeleteProduct" below to actually remove test/junk data.
+  const archiveProduct = async (p: Product) => {
+    if (!confirm(`¿Desactivar "${p.name}"?\n\nEl producto quedará inactivo pero seguirá en la base de datos (su SKU seguirá reservado).`)) return;
+    try {
+      await productsApi.delete(p.id);
+      load();
+    } catch (err) {
+      alert(getErrorMessage(err));
+    }
+  };
+
+  // Hard delete — permanently removes the row from the database and frees
+  // its SKU. Irreversible, so it asks for extra, explicit confirmation.
+  const hardDeleteProduct = async (p: Product) => {
+    const ok = confirm(
+      `¿Eliminar PERMANENTEMENTE "${p.name}" (SKU: ${p.sku ?? "—"})?\n\n` +
+      "Esta acción NO se puede deshacer: se borra por completo de la base de datos, no solo se desactiva."
+    );
+    if (!ok) return;
+    try {
+      await productsApi.hardDelete(p.id);
+      load();
+    } catch (err) {
+      alert(getErrorMessage(err));
+    }
   };
 
   const saveCategory = async () => {
@@ -112,10 +211,15 @@ export default function ProductsPage() {
     )},
     { key: "actions", label: "", render: p => (
       <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-        <button onClick={() => openEdit(p)} className="btn-secondary px-2 py-1.5 text-xs">
+        <button onClick={() => openEdit(p)} className="btn-secondary px-2 py-1.5 text-xs" title="Editar">
           <Pencil className="w-3 h-3" />
         </button>
-        <button onClick={() => deleteProduct(p)} className="btn-danger px-2 py-1.5 text-xs">
+        {p.status !== "DELETE_PRODUCT" && (
+          <button onClick={() => archiveProduct(p)} className="btn-secondary px-2 py-1.5 text-xs" title="Desactivar (no borra los datos)">
+            <Archive className="w-3 h-3" />
+          </button>
+        )}
+        <button onClick={() => hardDeleteProduct(p)} className="btn-danger px-2 py-1.5 text-xs" title="Eliminar permanentemente (no se puede deshacer)">
           <Trash2 className="w-3 h-3" />
         </button>
       </div>
@@ -176,13 +280,70 @@ export default function ProductsPage() {
       <Modal
         open={modal.open}
         onClose={closeModal}
-        title={modal.mode === "create" ? "Nuevo producto" : "Editar producto"}
+        title={createdProduct ? "Producto creado" : modal.mode === "create" ? "Nuevo producto" : "Editar producto"}
         size="lg"
       >
+      {createdProduct ? (
+        <div className="flex flex-col items-center text-center py-6">
+          <div className="w-14 h-14 rounded-full bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center mb-4">
+            <CheckCircle2 className="w-7 h-7 text-emerald-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-white mb-1">¡Producto creado exitosamente!</h3>
+          <p className="text-sm text-slate-400 mb-6">
+            <span className="text-white font-medium">{createdProduct.name}</span> se agregó al catálogo.
+          </p>
+          <div className="flex gap-3">
+            <button onClick={closeModal} className="btn-secondary">Cerrar</button>
+            <button onClick={createAnother} className="btn-primary">
+              <Plus className="w-4 h-4" /> Crear otro producto
+            </button>
+          </div>
+        </div>
+      ) : (
+      <>
+        {saveError && (
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-sm text-red-400">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>{saveError}</span>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="label">Nombre *</label>
+            <input
+              type="text" className="input"
+              value={form.name ?? ""}
+              onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+            />
+          </div>
+
+          <div>
+            <label className="label">SKU</label>
+            <div className="relative">
+              <input
+                type="text" className="input pr-9"
+                placeholder="Se autogenera si lo dejas vacío"
+                value={form.sku ?? ""}
+                onChange={e => onSkuChange(e.target.value)}
+                onBlur={onSkuBlur}
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                {skuCheck.status === "checking" && <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />}
+                {skuCheck.status === "available" && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                {skuCheck.status === "taken" && <XCircle className="w-4 h-4 text-red-400" />}
+              </div>
+            </div>
+            {skuCheck.status === "taken" && (
+              <p className="text-xs text-red-400 mt-1">
+                Este SKU ya lo usa &quot;{skuCheck.ownerName}&quot;. Elige otro.
+              </p>
+            )}
+            {skuCheck.status === "error" && (
+              <p className="text-xs text-amber-400 mt-1">No se pudo verificar el SKU. Se revalidará al guardar.</p>
+            )}
+          </div>
+
           {[
-            { label: "Nombre *", key: "name", type: "text" },
-            { label: "SKU", key: "sku", type: "text" },
             { label: "Precio *", key: "price", type: "number" },
             { label: "Precio costo", key: "costPrice", type: "number" },
             { label: "Stock", key: "stock", type: "number" },
@@ -267,11 +428,17 @@ export default function ProductsPage() {
 
         <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-white/10">
           <button onClick={closeModal} className="btn-secondary">Cancelar</button>
-          <button onClick={save} className="btn-primary" disabled={saving}>
+          <button
+            onClick={save} className="btn-primary"
+            disabled={saving || skuCheck.status === "checking" || skuCheck.status === "taken"}
+            title={skuCheck.status === "taken" ? "Elige un SKU disponible antes de guardar" : undefined}
+          >
             {saving && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
             {modal.mode === "create" ? "Crear" : "Guardar"}
           </button>
         </div>
+      </>
+      )}
       </Modal>
 
       {/* Category Modal */}

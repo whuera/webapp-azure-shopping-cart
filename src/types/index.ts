@@ -38,9 +38,11 @@ export interface Product {
   discount?: number; maxDiscount?: number;
   tracksInventory?: boolean; stock?: number;
   minStock?: number; maxStock?: number;
+  warehouseLocation?: string;
   taxRate?: number; taxExempt?: boolean;
   taxClassification?: string; imageUrl?: string;
-  createdAt?: string; updatedAt?: string;
+  averageRating?: number; ratingCount?: number;
+  createAt?: string; createdAt?: string; updatedAt?: string;
 }
 
 // ── Customer ──────────────────────────────────────────────────────────────────

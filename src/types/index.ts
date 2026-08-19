@@ -27,7 +27,9 @@ export interface CreateUserRequest {
 }
 
 // ── Products ──────────────────────────────────────────────────────────────────
-export interface Category { id: number; name: string; }
+export interface CategoryGroup { id: number; name: string; }
+export interface Category { id: number; name: string; group?: CategoryGroup; }
+export interface ProductImage { id: number; url: string; sortOrder?: number; }
 export interface Product {
   id: number; name: string; description?: string;
   sku?: string; category?: Category;
@@ -41,6 +43,7 @@ export interface Product {
   warehouseLocation?: string;
   taxRate?: number; taxExempt?: boolean;
   taxClassification?: string; imageUrl?: string;
+  images?: ProductImage[];
   averageRating?: number; ratingCount?: number;
   createAt?: string; createdAt?: string; updatedAt?: string;
 }

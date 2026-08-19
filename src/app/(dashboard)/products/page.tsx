@@ -6,12 +6,14 @@ import GlassCard from "@/components/ui/GlassCard";
 import DataTable, { Column } from "@/components/ui/DataTable";
 import Badge, { statusVariant } from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
-import { productsApi, getErrorMessage } from "@/lib/api";
-import { Product, Category } from "@/types";
+import { productsApi, categoryGroupsApi, getErrorMessage } from "@/lib/api";
+import { Product, Category, CategoryGroup } from "@/types";
 import {
   Plus, Search, Package, RefreshCw, Pencil, Trash2, CheckCircle2, AlertTriangle,
-  Loader2, XCircle, Archive,
+  Loader2, XCircle, Archive, Layers, Check, X, ChevronUp, ChevronDown, Images,
 } from "lucide-react";
+
+type DraftImage = { url: string; sortOrder: number };
 
 const SKU_CHECK_DEBOUNCE_MS = 500;
 type SkuCheckState =
@@ -33,6 +35,7 @@ export default function ProductsPage() {
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [groups, setGroups] = useState<CategoryGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState<{ open: boolean; mode: "create" | "edit"; item?: Product }>({
@@ -44,18 +47,33 @@ export default function ProductsPage() {
   const [createdProduct, setCreatedProduct] = useState<Product | null>(null);
   const [catModal, setCatModal] = useState(false);
   const [catName, setCatName] = useState("");
+  const [catGroupId, setCatGroupId] = useState<number | "">("");
+  // Group used to filter the category dropdown inside the product form
+  const [formGroupFilter, setFormGroupFilter] = useState<number | "">("");
+  // Groups management modal
+  const [groupModal, setGroupModal] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [savingGroup, setSavingGroup] = useState(false);
+  const [groupError, setGroupError] = useState<string | null>(null);
+  // Inline edit state (ready for when backend supports PUT /api/category-groups/{id})
+  const [editingGroupId, setEditingGroupId] = useState<number | null>(null);
+  const [editingGroupName, setEditingGroupName] = useState("");
+  // Product image gallery draft (local state, synced to backend on save)
+  const [draftImages, setDraftImages] = useState<DraftImage[]>([]);
   const [skuCheck, setSkuCheck] = useState<SkuCheckState>({ status: "idle" });
   const skuDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const skuRequestSeq = useRef(0);
 
   const load = async () => {
     setLoading(true);
-    const [pr, cr] = await Promise.allSettled([
+    const [pr, cr, gr] = await Promise.allSettled([
       productsApi.list(),
       productsApi.categories(),
+      categoryGroupsApi.list(),
     ]);
     if (pr.status === "fulfilled" && pr.value.success) setProducts(pr.value.data);
     if (cr.status === "fulfilled" && cr.value.success) setCategories(cr.value.data);
+    if (gr.status === "fulfilled" && gr.value.success) setGroups(gr.value.data);
     setLoading(false);
   };
 
@@ -101,11 +119,18 @@ export default function ProductsPage() {
   const onSkuBlur = () => checkSkuAvailability(form.sku ?? "", modal.item?.id);
 
   const openCreate = () => {
-    setForm(EMPTY_PRODUCT); setSaveError(null); setCreatedProduct(null); setSkuCheck({ status: "idle" });
+    setForm(EMPTY_PRODUCT); setSaveError(null); setCreatedProduct(null);
+    setSkuCheck({ status: "idle" }); setFormGroupFilter(""); setDraftImages([]);
     setModal({ open: true, mode: "create" });
   };
   const openEdit = (p: Product) => {
-    setForm(p); setSaveError(null); setCreatedProduct(null); setSkuCheck({ status: "idle" });
+    setForm(p); setSaveError(null); setCreatedProduct(null);
+    setSkuCheck({ status: "idle" });
+    setFormGroupFilter(p.category?.group?.id ?? "");
+    // Prefer gallery images; fall back to imageUrl if gallery is empty
+    const imgs = (p.images ?? []).map((img, i) => ({ url: img.url, sortOrder: img.sortOrder ?? i }));
+    if (imgs.length === 0 && p.imageUrl) imgs.push({ url: p.imageUrl, sortOrder: 0 });
+    setDraftImages(imgs);
     setModal({ open: true, mode: "edit", item: p });
   };
 
@@ -124,24 +149,36 @@ export default function ProductsPage() {
     clearTimeout(skuDebounceRef.current);
     setModal({ open: false, mode: "create" });
     setSaveError(null); setCreatedProduct(null); setSkuCheck({ status: "idle" });
+    setFormGroupFilter(""); setDraftImages([]);
   };
 
   // After a successful create, reset the form and keep the modal open so
   // the user can immediately register another product.
   const createAnother = () => {
-    setForm(EMPTY_PRODUCT); setSaveError(null); setCreatedProduct(null); setSkuCheck({ status: "idle" });
+    setForm(EMPTY_PRODUCT); setSaveError(null); setCreatedProduct(null);
+    setSkuCheck({ status: "idle" }); setFormGroupFilter(""); setDraftImages([]);
   };
 
   const save = async () => {
     setSaving(true);
     setSaveError(null);
+    // Only send images with a non-empty URL, re-indexed by position
+    const validImages = draftImages
+      .filter(i => i.url.trim())
+      .map((i, idx) => ({ url: i.url.trim(), sortOrder: idx }));
+    // Keep imageUrl in sync with the first gallery image
+    const syncedForm = { ...form, imageUrl: validImages[0]?.url ?? "" };
     try {
       if (modal.mode === "create") {
-        const res = await productsApi.create(form);
+        const res = await productsApi.create(syncedForm);
+        if (validImages.length > 0) {
+          await productsApi.setImages(res.data.id, validImages);
+        }
         setCreatedProduct(res.data);
         load();
       } else {
-        await productsApi.update(modal.item!.id, form);
+        await productsApi.update(modal.item!.id, syncedForm);
+        await productsApi.setImages(modal.item!.id, validImages);
         closeModal();
         load();
       }
@@ -181,10 +218,55 @@ export default function ProductsPage() {
     }
   };
 
+  const createGroup = async () => {
+    if (!newGroupName.trim()) return;
+    setSavingGroup(true); setGroupError(null);
+    try {
+      const res = await categoryGroupsApi.create({ name: newGroupName.trim() });
+      if (res.success) {
+        setGroups(g => [...g, res.data]);
+        setNewGroupName("");
+      }
+    } catch (err) {
+      setGroupError(getErrorMessage(err));
+    } finally {
+      setSavingGroup(false);
+    }
+  };
+
+  const saveGroupEdit = async () => {
+    if (!editingGroupName.trim() || editingGroupId === null) return;
+    setSavingGroup(true); setGroupError(null);
+    try {
+      const res = await categoryGroupsApi.update(editingGroupId, editingGroupName.trim());
+      if (res.success) {
+        setGroups(g => g.map(x => x.id === editingGroupId ? res.data : x));
+        setEditingGroupId(null);
+      }
+    } catch (err) {
+      setGroupError(getErrorMessage(err));
+    } finally {
+      setSavingGroup(false);
+    }
+  };
+
+  const deleteGroup = async (g: CategoryGroup) => {
+    if (!confirm(`¿Eliminar el grupo "${g.name}"?\n\nSolo es posible si no tiene categorías asociadas.`)) return;
+    setGroupError(null);
+    try {
+      await categoryGroupsApi.delete(g.id);
+      setGroups(gs => gs.filter(x => x.id !== g.id));
+    } catch (err) {
+      setGroupError(getErrorMessage(err));
+    }
+  };
+
   const saveCategory = async () => {
     if (!catName.trim()) return;
-    await productsApi.createCategory({ name: catName });
-    setCatName(""); setCatModal(false);
+    const body: Partial<Category> = { name: catName };
+    if (catGroupId !== "") body.group = { id: catGroupId } as CategoryGroup;
+    await productsApi.createCategory(body);
+    setCatName(""); setCatGroupId(""); setCatModal(false);
     productsApi.categories().then(r => { if (r.success) setCategories(r.data); });
   };
 
@@ -257,6 +339,9 @@ export default function ProductsPage() {
                 className="input pl-9"
               />
             </div>
+            <button onClick={() => { setGroupModal(true); setGroupError(null); setNewGroupName(""); }} className="btn-secondary">
+              <Layers className="w-4 h-4" /> Grupos
+            </button>
             <button onClick={() => setCatModal(true)} className="btn-secondary">
               <Plus className="w-4 h-4" /> Categoría
             </button>
@@ -378,6 +463,26 @@ export default function ProductsPage() {
           ))}
 
           <div>
+            <label className="label">Grupo principal</label>
+            <select
+              className="input"
+              value={formGroupFilter}
+              onChange={e => {
+                const gid = e.target.value === "" ? "" : Number(e.target.value);
+                setFormGroupFilter(gid);
+                // Clear category if it doesn't belong to the new group
+                if (gid !== "" && form.category) {
+                  const cat = categories.find(c => c.id === (form.category as Category).id);
+                  if (cat?.group?.id !== gid) setForm(p => ({ ...p, category: undefined }));
+                }
+              }}
+            >
+              <option value="">Todos los grupos</option>
+              {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          </div>
+
+          <div>
             <label className="label">Categoría</label>
             <select
               className="input"
@@ -385,10 +490,15 @@ export default function ProductsPage() {
               onChange={e => {
                 const cat = categories.find(c => c.id === Number(e.target.value));
                 setForm(p => ({ ...p, category: cat }));
+                // Sync group filter to match selected category's group
+                if (cat) setFormGroupFilter(cat.group?.id ?? "");
               }}
             >
               <option value="">Sin categoría</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {(formGroupFilter === ""
+                ? categories
+                : categories.filter(c => c.group?.id === formGroupFilter)
+              ).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
 
@@ -416,29 +526,91 @@ export default function ProductsPage() {
           </div>
 
           <div className="col-span-2">
-            <label className="label">URL de imagen</label>
-            <div className="flex items-center gap-3">
-              {form.imageUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={form.imageUrl}
-                  alt="Vista previa"
-                  className="w-12 h-12 rounded-lg object-cover border border-white/10 shrink-0"
-                  onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                />
-              )}
-              <input
-                type="url" className="input" placeholder="https://ejemplo.com/imagen.jpg"
-                value={form.imageUrl ?? ""}
-                onChange={e => setForm(p => ({ ...p, imageUrl: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <div className="col-span-2">
             <label className="label">Descripción</label>
             <textarea className="input h-20 resize-none" value={form.description ?? ""}
               onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
+          </div>
+
+          {/* Unified image section */}
+          <div className="col-span-2 border-t border-white/10 pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <label className="label mb-0 flex items-center gap-2">
+                <Images className="w-4 h-4 text-blue-400" />
+                Imágenes
+                <span className="text-xs text-slate-500 font-normal">
+                  ({draftImages.length}/10) — la primera es la imagen principal
+                </span>
+              </label>
+              <button
+                type="button"
+                className="btn-secondary text-xs px-2 py-1"
+                disabled={draftImages.length >= 10}
+                onClick={() => setDraftImages(imgs => [...imgs, { url: "", sortOrder: imgs.length }])}
+              >
+                <Plus className="w-3 h-3" /> Agregar
+              </button>
+            </div>
+
+            {draftImages.length === 0 ? (
+              <p className="text-xs text-slate-500 py-2">Sin imágenes. Haz clic en "Agregar" para añadir.</p>
+            ) : (
+              <div className="space-y-2">
+                {draftImages.map((img, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    {/* Thumbnail */}
+                    <div className="w-10 h-10 rounded-lg border border-white/10 shrink-0 overflow-hidden bg-white/5 flex items-center justify-center">
+                      {img.url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={img.url} alt=""
+                          className="w-full h-full object-cover"
+                          onError={e => { (e.target as HTMLImageElement).style.opacity = "0.2"; }}
+                        />
+                      ) : (
+                        <Package className="w-4 h-4 text-slate-600" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 relative">
+                      <input
+                        type="url"
+                        className="input text-sm w-full"
+                        placeholder="https://..."
+                        value={img.url}
+                        onChange={e => setDraftImages(imgs =>
+                          imgs.map((x, i) => i === idx ? { ...x, url: e.target.value } : x)
+                        )}
+                      />
+                      {idx === 0 && (
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-blue-400 font-medium pointer-events-none">
+                          principal
+                        </span>
+                      )}
+                    </div>
+
+                    <button type="button" className="btn-secondary p-1.5 shrink-0" title="Subir"
+                      disabled={idx === 0}
+                      onClick={() => setDraftImages(imgs => {
+                        const a = [...imgs]; [a[idx - 1], a[idx]] = [a[idx], a[idx - 1]]; return a;
+                      })}>
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button type="button" className="btn-secondary p-1.5 shrink-0" title="Bajar"
+                      disabled={idx === draftImages.length - 1}
+                      onClick={() => setDraftImages(imgs => {
+                        const a = [...imgs]; [a[idx + 1], a[idx]] = [a[idx], a[idx + 1]]; return a;
+                      })}>
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button type="button" className="btn-danger p-1.5 shrink-0" title="Eliminar"
+                      onClick={() => setDraftImages(imgs => imgs.filter((_, i) => i !== idx))}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -458,15 +630,117 @@ export default function ProductsPage() {
       </Modal>
 
       {/* Category Modal */}
-      <Modal open={catModal} onClose={() => setCatModal(false)} title="Nueva categoría" size="sm">
-        <div>
-          <label className="label">Nombre de categoría</label>
-          <input type="text" className="input" value={catName}
-            onChange={e => setCatName(e.target.value)} placeholder="Ej: Electrónica" />
+      <Modal open={catModal} onClose={() => { setCatModal(false); setCatName(""); setCatGroupId(""); }} title="Nueva categoría" size="sm">
+        <div className="space-y-3">
+          <div>
+            <label className="label">Nombre de categoría</label>
+            <input type="text" className="input" value={catName}
+              onChange={e => setCatName(e.target.value)} placeholder="Ej: Electrónica" />
+          </div>
+          <div>
+            <label className="label">Grupo principal</label>
+            <select className="input" value={catGroupId}
+              onChange={e => setCatGroupId(e.target.value === "" ? "" : Number(e.target.value))}>
+              <option value="">Sin grupo</option>
+              {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          </div>
         </div>
         <div className="flex justify-end gap-3 mt-4">
-          <button onClick={() => setCatModal(false)} className="btn-secondary">Cancelar</button>
+          <button onClick={() => { setCatModal(false); setCatName(""); setCatGroupId(""); }} className="btn-secondary">Cancelar</button>
           <button onClick={saveCategory} className="btn-primary">Crear</button>
+        </div>
+      </Modal>
+
+      {/* Groups Management Modal */}
+      <Modal
+        open={groupModal}
+        onClose={() => { setGroupModal(false); setNewGroupName(""); setGroupError(null); setEditingGroupId(null); }}
+        title="Gestión de grupos"
+        size="sm"
+      >
+        {/* Existing groups list */}
+        <div className="space-y-1 mb-4 max-h-56 overflow-y-auto">
+          {groups.length === 0 && (
+            <p className="text-sm text-slate-500 text-center py-4">No hay grupos creados aún.</p>
+          )}
+          {groups.map(g => (
+            <div key={g.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
+              {editingGroupId === g.id ? (
+                <>
+                  <input
+                    className="input flex-1 py-1 text-sm"
+                    value={editingGroupName}
+                    onChange={e => setEditingGroupName(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") saveGroupEdit(); if (e.key === "Escape") setEditingGroupId(null); }}
+                    autoFocus
+                  />
+                  <button
+                    className="p-1 rounded text-emerald-400 hover:text-emerald-300 transition-colors"
+                    title="Guardar"
+                    onClick={saveGroupEdit}
+                    disabled={savingGroup || !editingGroupName.trim()}
+                  >
+                    {savingGroup ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  </button>
+                  <button
+                    className="p-1 rounded text-slate-400 hover:text-white transition-colors"
+                    onClick={() => setEditingGroupId(null)}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="flex-1 text-sm text-white">{g.name}</span>
+                  <button
+                    className="p-1 rounded text-slate-400 hover:text-blue-400 transition-colors"
+                    title="Editar nombre"
+                    onClick={() => { setEditingGroupId(g.id); setEditingGroupName(g.name); setGroupError(null); }}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    className="p-1 rounded text-slate-400 hover:text-red-400 transition-colors"
+                    title="Eliminar grupo"
+                    onClick={() => deleteGroup(g)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Create new group */}
+        <div className="border-t border-white/10 pt-4">
+          <label className="label">Nuevo grupo</label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              className="input flex-1"
+              placeholder="Ej: Electrónica, Alimentos..."
+              value={newGroupName}
+              onChange={e => setNewGroupName(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && createGroup()}
+            />
+            <button
+              onClick={createGroup}
+              className="btn-primary shrink-0"
+              disabled={savingGroup || !newGroupName.trim()}
+            >
+              {savingGroup
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Plus className="w-4 h-4" />
+              }
+            </button>
+          </div>
+          {groupError && (
+            <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3" /> {groupError}
+            </p>
+          )}
         </div>
       </Modal>
     </div>

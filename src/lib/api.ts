@@ -2,7 +2,7 @@ import axios, { AxiosInstance, AxiosResponse } from "axios";
 import Cookies from "js-cookie";
 import {
   Result, LoginRequest, LoginResponse, UserResponse, CreateUserRequest,
-  Product, Category, Customer, Invoice, InvoiceRequest, DailyCash,
+  Product, Category, CategoryGroup, Customer, Invoice, InvoiceRequest, DailyCash,
   CashTransaction, Warehouse, Inventory, InventoryMovement,
   InventoryMovementRequest, TransferRequest, ChartOfAccount,
   AccountingPeriod, JournalEntry, FixedAsset, CrmCompany, CrmContact,
@@ -126,6 +126,24 @@ export const productsApi = {
     http.get<Result<Category[]>>("/api/categories").then(data),
   createCategory: (body: Partial<Category>) =>
     http.post<Result<Category>>("/api/categories", body).then(data),
+  updateCategoryGroup: (categoryId: number, groupId: number | null) =>
+    http.put<Result<Category>>(`/api/categories/${categoryId}/group`, null, {
+      params: groupId != null ? { groupId } : {},
+    }).then(data),
+  setImages: (productId: number, images: { url: string; sortOrder?: number }[]) =>
+    http.put<Result<Product>>(`/api/products/${productId}/images`, images).then(data),
+};
+
+// ── Category Groups ───────────────────────────────────────────────────────────
+export const categoryGroupsApi = {
+  list: () =>
+    http.get<Result<CategoryGroup[]>>("/api/category-groups").then(data),
+  create: (body: { name: string }) =>
+    http.post<Result<CategoryGroup>>("/api/category-groups", body).then(data),
+  update: (id: number, name: string) =>
+    http.put<Result<CategoryGroup>>(`/api/category-groups/${id}`, { name }).then(data),
+  delete: (id: number) =>
+    http.delete<Result<string>>(`/api/category-groups/${id}`).then(data),
 };
 
 // ── Customers ─────────────────────────────────────────────────────────────────

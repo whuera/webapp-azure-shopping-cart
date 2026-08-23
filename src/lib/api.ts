@@ -96,7 +96,7 @@ export const productsApi = {
   getById: (id: number) =>
     http.get<Result<Product>>(`/api/product/${id}`).then(data),
   create: (body: Partial<Product>) =>
-    http.post<Result<Product>>("/api", body).then(data),
+    http.post<Result<Product>>("/api/products", body).then(data),
   update: (id: number, body: Partial<Product>) =>
     http.put<Result<Product>>(`/api/products/${id}`, body).then(data),
   /** Soft delete — marks the product as DELETE_PRODUCT but keeps the row (and its SKU) reserved. */

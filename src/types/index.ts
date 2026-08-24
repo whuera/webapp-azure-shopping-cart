@@ -44,6 +44,7 @@ export interface Product {
   taxRate?: number; taxExempt?: boolean;
   taxClassification?: string; imageUrl?: string;
   images?: ProductImage[];
+  specifications?: Record<string, string>;
   averageRating?: number; ratingCount?: number;
   createAt?: string; createdAt?: string; updatedAt?: string;
 }

@@ -10,10 +10,11 @@ import { productsApi, categoryGroupsApi, getErrorMessage } from "@/lib/api";
 import { Product, Category, CategoryGroup } from "@/types";
 import {
   Plus, Search, Package, RefreshCw, Pencil, Trash2, CheckCircle2, AlertTriangle,
-  Loader2, XCircle, Archive, Layers, Check, X, ChevronUp, ChevronDown, Images,
+  Loader2, XCircle, Archive, Layers, Check, X, ChevronUp, ChevronDown, Images, Settings2,
 } from "lucide-react";
 
 type DraftImage = { url: string; sortOrder: number };
+type DraftSpec = { key: string; value: string };
 
 const SKU_CHECK_DEBOUNCE_MS = 500;
 type SkuCheckState =
@@ -60,6 +61,8 @@ export default function ProductsPage() {
   const [editingGroupName, setEditingGroupName] = useState("");
   // Product image gallery draft (local state, synced to backend on save)
   const [draftImages, setDraftImages] = useState<DraftImage[]>([]);
+  // Specifications draft (key-value pairs)
+  const [draftSpecs, setDraftSpecs] = useState<DraftSpec[]>([]);
   const [skuCheck, setSkuCheck] = useState<SkuCheckState>({ status: "idle" });
   const skuDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const skuRequestSeq = useRef(0);
@@ -118,20 +121,40 @@ export default function ProductsPage() {
   // Instant check on blur/Tab, in case the debounce hasn't fired yet.
   const onSkuBlur = () => checkSkuAvailability(form.sku ?? "", modal.item?.id);
 
+  const specsToRecord = (specs: DraftSpec[]): Record<string, string> =>
+    Object.fromEntries(specs.filter(s => s.key.trim()).map(s => [s.key.trim(), s.value]));
+
+  const recordToSpecs = (rec?: Record<string, string>): DraftSpec[] =>
+    rec ? Object.entries(rec).map(([key, value]) => ({ key, value })) : [];
+
   const openCreate = () => {
     setForm(EMPTY_PRODUCT); setSaveError(null); setCreatedProduct(null);
-    setSkuCheck({ status: "idle" }); setFormGroupFilter(""); setDraftImages([]);
+    setSkuCheck({ status: "idle" }); setFormGroupFilter(""); setDraftImages([]); setDraftSpecs([]);
     setModal({ open: true, mode: "create" });
   };
-  const openEdit = (p: Product) => {
-    setForm(p); setSaveError(null); setCreatedProduct(null);
+  const openEdit = async (p: Product) => {
+    setSaveError(null); setCreatedProduct(null);
     setSkuCheck({ status: "idle" });
-    setFormGroupFilter(p.category?.group?.id ?? "");
+
+    // Re-fetch the full product by ID to guarantee we get all fields
+    // (specifications, images, etc.). The detail endpoint returns the
+    // complete object; the list endpoint may return a lighter projection.
+    let full = p;
+    try {
+      const res = await productsApi.getById(p.id);
+      if (res.success && res.data) full = res.data;
+    } catch {
+      // fall through with list data if detail endpoint is unavailable
+    }
+
+    setForm(full);
+    setFormGroupFilter(full.category?.group?.id ?? "");
     // Prefer gallery images; fall back to imageUrl if gallery is empty
-    const imgs = (p.images ?? []).map((img, i) => ({ url: img.url, sortOrder: img.sortOrder ?? i }));
-    if (imgs.length === 0 && p.imageUrl) imgs.push({ url: p.imageUrl, sortOrder: 0 });
+    const imgs = (full.images ?? []).map((img, i) => ({ url: img.url, sortOrder: img.sortOrder ?? i }));
+    if (imgs.length === 0 && full.imageUrl) imgs.push({ url: full.imageUrl, sortOrder: 0 });
     setDraftImages(imgs);
-    setModal({ open: true, mode: "edit", item: p });
+    setDraftSpecs(recordToSpecs(full.specifications));
+    setModal({ open: true, mode: "edit", item: full });
   };
 
   // Supports arriving from the product detail page's "Editar" button
@@ -149,14 +172,14 @@ export default function ProductsPage() {
     clearTimeout(skuDebounceRef.current);
     setModal({ open: false, mode: "create" });
     setSaveError(null); setCreatedProduct(null); setSkuCheck({ status: "idle" });
-    setFormGroupFilter(""); setDraftImages([]);
+    setFormGroupFilter(""); setDraftImages([]); setDraftSpecs([]);
   };
 
   // After a successful create, reset the form and keep the modal open so
   // the user can immediately register another product.
   const createAnother = () => {
     setForm(EMPTY_PRODUCT); setSaveError(null); setCreatedProduct(null);
-    setSkuCheck({ status: "idle" }); setFormGroupFilter(""); setDraftImages([]);
+    setSkuCheck({ status: "idle" }); setFormGroupFilter(""); setDraftImages([]); setDraftSpecs([]);
   };
 
   const save = async () => {
@@ -166,8 +189,12 @@ export default function ProductsPage() {
     const validImages = draftImages
       .filter(i => i.url.trim())
       .map((i, idx) => ({ url: i.url.trim(), sortOrder: idx }));
-    // Keep imageUrl in sync with the first gallery image
-    const syncedForm = { ...form, imageUrl: validImages[0]?.url ?? "" };
+    // Keep imageUrl in sync with the first gallery image, and include specs
+    const syncedForm = {
+      ...form,
+      imageUrl: validImages[0]?.url ?? "",
+      specifications: specsToRecord(draftSpecs),
+    };
     try {
       if (modal.mode === "create") {
         const res = await productsApi.create(syncedForm);
@@ -529,6 +556,66 @@ export default function ProductsPage() {
             <label className="label">Descripción</label>
             <textarea className="input h-20 resize-none" value={form.description ?? ""}
               onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
+          </div>
+
+          {/* Specifications section */}
+          <div className="col-span-2 border-t border-white/10 pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <label className="label mb-0 flex items-center gap-2">
+                <Settings2 className="w-4 h-4 text-blue-400" />
+                Especificaciones
+                <span className="text-xs text-slate-500 font-normal">
+                  (atributos técnicos del producto)
+                </span>
+              </label>
+              <button
+                type="button"
+                className="btn-secondary text-xs px-2 py-1"
+                onClick={() => setDraftSpecs(s => [...s, { key: "", value: "" }])}
+              >
+                <Plus className="w-3 h-3" /> Agregar
+              </button>
+            </div>
+
+            {draftSpecs.length === 0 ? (
+              <p className="text-xs text-slate-500 py-2">
+                Sin especificaciones. Haz clic en &quot;Agregar&quot; para añadir.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {draftSpecs.map((spec, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      className="input text-sm w-2/5"
+                      placeholder="Atributo (ej: Color)"
+                      value={spec.key}
+                      onChange={e => setDraftSpecs(s =>
+                        s.map((x, i) => i === idx ? { ...x, key: e.target.value } : x)
+                      )}
+                    />
+                    <span className="text-slate-500 text-sm shrink-0">:</span>
+                    <input
+                      type="text"
+                      className="input text-sm flex-1"
+                      placeholder="Valor (ej: Rojo)"
+                      value={spec.value}
+                      onChange={e => setDraftSpecs(s =>
+                        s.map((x, i) => i === idx ? { ...x, value: e.target.value } : x)
+                      )}
+                    />
+                    <button
+                      type="button"
+                      className="btn-danger p-1.5 shrink-0"
+                      title="Eliminar"
+                      onClick={() => setDraftSpecs(s => s.filter((_, i) => i !== idx))}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Unified image section */}

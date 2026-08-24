@@ -8,6 +8,7 @@ import Modal from "@/components/ui/Modal";
 import StatCard from "@/components/ui/StatCard";
 import { usersApi } from "@/lib/api";
 import { UserResponse, CreateUserRequest } from "@/types";
+import { useSetBottomPanelTabs } from "@/context/BottomPanelContext";
 import {
   Users, UserCog, ShieldCheck, UserX,
   Plus, RefreshCw, Pencil, Key, Search,
@@ -16,22 +17,23 @@ import {
 const ROLES = ["ROLE_ADMIN", "ROLE_MANAGER", "ROLE_SALES", "ROLE_INVENTORY", "ROLE_ACCOUNTING"];
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<UserResponse[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [users, setUsers]         = useState<UserResponse[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [search, setSearch]       = useState("");
+  const setTabs                   = useSetBottomPanelTabs();
 
   const [createModal, setCreateModal] = useState(false);
-  const [editModal, setEditModal] = useState<UserResponse | null>(null);
-  const [roleModal, setRoleModal] = useState<UserResponse | null>(null);
-  const [pwModal, setPwModal] = useState<UserResponse | null>(null);
+  const [editModal, setEditModal]     = useState<UserResponse | null>(null);
+  const [roleModal, setRoleModal]     = useState<UserResponse | null>(null);
+  const [pwModal, setPwModal]         = useState<UserResponse | null>(null);
 
   const [createForm, setCreateForm] = useState<CreateUserRequest>({
     firstName: "", lastName: "", email: "", password: "",
     phoneNumber: "", userType: "INTERNAL", roleNames: [],
   });
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
-  const [newPassword, setNewPassword] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [newPassword, setNewPassword]     = useState("");
+  const [saving, setSaving]               = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -91,9 +93,7 @@ export default function UsersPage() {
         </div>
       </div>
     )},
-    { key: "userType", label: "Tipo", render: u => (
-      <Badge label={u.userType} variant={u.userType === "INTERNAL" ? "info" : "default"} />
-    )},
+    { key: "userType", label: "Tipo", render: u => <Badge label={u.userType} variant={u.userType === "INTERNAL" ? "info" : "default"} /> },
     { key: "roles", label: "Roles", render: u => (
       <div className="flex gap-1 flex-wrap">
         {u.roles.map(r => (
@@ -103,49 +103,53 @@ export default function UsersPage() {
         ))}
       </div>
     )},
-    { key: "status", label: "Estado", render: u => (
-      <Badge label={u.status} variant={statusVariant(u.status)} />
-    )},
+    { key: "status", label: "Estado", render: u => <Badge label={u.status} variant={statusVariant(u.status)} /> },
     { key: "actions", label: "", render: u => (
       <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-        <button
-          onClick={() => { setSelectedRoles(u.roles); setRoleModal(u); }}
-          className="btn-secondary px-2 py-1.5 text-xs"
-          title="Gestionar roles"
-        >
-          <ShieldCheck className="w-3 h-3" />
-        </button>
-        <button
-          onClick={() => setPwModal(u)}
-          className="btn-secondary px-2 py-1.5 text-xs"
-          title="Resetear contraseña"
-        >
-          <Key className="w-3 h-3" />
-        </button>
+        <button onClick={() => { setSelectedRoles(u.roles); setRoleModal(u); }} className="btn-secondary px-2 py-1.5 text-xs" title="Gestionar roles"><ShieldCheck className="w-3 h-3" /></button>
+        <button onClick={() => setPwModal(u)} className="btn-secondary px-2 py-1.5 text-xs" title="Resetear contraseña"><Key className="w-3 h-3" /></button>
         {u.status === "ACTIVE" && (
-          <button onClick={() => deactivate(u.id)} className="btn-danger px-2 py-1.5 text-xs">
-            <UserX className="w-3 h-3" />
-          </button>
+          <button onClick={() => deactivate(u.id)} className="btn-danger px-2 py-1.5 text-xs"><UserX className="w-3 h-3" /></button>
         )}
       </div>
     )},
   ];
 
   const internalUsers = users.filter(u => u.userType === "INTERNAL");
-  const adminUsers = users.filter(u => u.roles.includes("ROLE_ADMIN"));
-  const activeUsers = users.filter(u => u.status === "ACTIVE");
+  const adminUsers    = users.filter(u => u.roles.includes("ROLE_ADMIN"));
+  const activeUsers   = users.filter(u => u.status === "ACTIVE");
+
+  // ── Bottom panel tabs ────────────────────────────────────────────────────
+  useEffect(() => {
+    setTabs([
+      {
+        id: "usuarios",
+        label: "Usuarios",
+        icon: Users,
+        content: (
+          <DataTable
+            columns={columns} data={filtered} loading={loading}
+            keyExtractor={u => u.id}
+            emptyText="No se encontraron usuarios"
+          />
+        ),
+      },
+    ]);
+    return () => setTabs([]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, loading, setTabs]);
 
   return (
     <div className="flex flex-col h-full">
       <Header title="Usuarios" subtitle="Administración de cuentas y permisos" />
-      <div className="flex-1 p-6 space-y-4 overflow-auto">
+      <div className="flex-1 p-6 space-y-4">
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="Total usuarios" value={users.length} icon={Users} color="blue" />
-          <StatCard title="Activos" value={activeUsers.length} icon={UserCog} color="emerald" />
-          <StatCard title="Internos" value={internalUsers.length} icon={Pencil} color="purple" />
-          <StatCard title="Administradores" value={adminUsers.length} icon={ShieldCheck} color="amber" />
+          <StatCard title="Total usuarios" value={users.length}        icon={Users}       color="blue" />
+          <StatCard title="Activos"        value={activeUsers.length}  icon={UserCog}     color="emerald" />
+          <StatCard title="Internos"       value={internalUsers.length} icon={Pencil}     color="purple" />
+          <StatCard title="Administradores" value={adminUsers.length}  icon={ShieldCheck} color="amber" />
         </div>
 
         {/* Toolbar */}
@@ -157,21 +161,12 @@ export default function UsersPage() {
                 placeholder="Buscar por nombre o email..."
                 className="input pl-9" />
             </div>
-            <button onClick={load} className="btn-secondary">
-              <RefreshCw className="w-4 h-4" />
-            </button>
-            <button onClick={() => setCreateModal(true)} className="btn-primary">
-              <Plus className="w-4 h-4" /> Nuevo usuario
-            </button>
+            <button onClick={load} className="btn-secondary"><RefreshCw className="w-4 h-4" /></button>
+            <button onClick={() => setCreateModal(true)} className="btn-primary"><Plus className="w-4 h-4" /> Nuevo usuario</button>
           </div>
         </GlassCard>
 
-        {/* Table */}
-        <DataTable
-          columns={columns} data={filtered} loading={loading}
-          keyExtractor={u => u.id}
-          emptyText="No se encontraron usuarios"
-        />
+        <p className="text-xs text-slate-600 px-1">El listado de usuarios está en el panel inferior ↓</p>
       </div>
 
       {/* Create Modal */}
@@ -194,8 +189,7 @@ export default function UsersPage() {
           ))}
           <div>
             <label className="label">Tipo de usuario</label>
-            <select className="input" value={createForm.userType}
-              onChange={e => setCreateForm(p => ({ ...p, userType: e.target.value }))}>
+            <select className="input" value={createForm.userType} onChange={e => setCreateForm(p => ({ ...p, userType: e.target.value }))}>
               <option value="INTERNAL">Interno</option>
               <option value="CUSTOMER">Cliente</option>
             </select>
@@ -206,8 +200,7 @@ export default function UsersPage() {
               {ROLES.map(role => (
                 <label key={role} className="flex items-center gap-2 cursor-pointer">
                   <input
-                    type="checkbox"
-                    className="accent-blue-500"
+                    type="checkbox" className="accent-blue-500"
                     checked={createForm.roleNames.includes(role)}
                     onChange={e => {
                       const next = e.target.checked
@@ -236,16 +229,9 @@ export default function UsersPage() {
         <div className="space-y-2">
           {ROLES.map(role => (
             <label key={role} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 cursor-pointer">
-              <input
-                type="checkbox"
-                className="accent-blue-500 w-4 h-4"
+              <input type="checkbox" className="accent-blue-500 w-4 h-4"
                 checked={selectedRoles.includes(role)}
-                onChange={e => {
-                  setSelectedRoles(e.target.checked
-                    ? [...selectedRoles, role]
-                    : selectedRoles.filter(r => r !== role));
-                }}
-              />
+                onChange={e => setSelectedRoles(e.target.checked ? [...selectedRoles, role] : selectedRoles.filter(r => r !== role))} />
               <span className="text-slate-200 text-sm">{role}</span>
             </label>
           ))}

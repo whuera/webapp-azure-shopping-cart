@@ -2,97 +2,149 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { useLayout } from "@/context/LayoutContext";
 import clsx from "clsx";
 import {
   LayoutDashboard, Package, Warehouse, ReceiptText,
-  BookOpen, Users2, Users, ShoppingCart, LogOut, ChevronRight, ClipboardList,
+  BookOpen, Users2, Users, ShoppingCart, LogOut, ChevronRight, ClipboardList, Settings,
 } from "lucide-react";
 
-const NAV = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/products", label: "Productos", icon: Package },
-  { href: "/inventory", label: "Inventario", icon: Warehouse },
-  { href: "/sales", label: "Ventas", icon: ReceiptText },
-  { href: "/orders", label: "Pedidos", icon: ClipboardList },
-  { href: "/accounting", label: "Contabilidad", icon: BookOpen },
-  { href: "/crm", label: "CRM", icon: Users2 },
-  { href: "/users", label: "Usuarios", icon: Users },
+type NavItem = { href: string; label: string; icon: React.ElementType; divider?: boolean };
+
+const NAV: NavItem[] = [
+  { href: "/dashboard",     label: "Dashboard",    icon: LayoutDashboard },
+  { href: "/products",      label: "Productos",    icon: Package },
+  { href: "/inventory",     label: "Inventario",   icon: Warehouse },
+  { href: "/sales",         label: "Ventas",       icon: ReceiptText },
+  { href: "/orders",        label: "Pedidos",      icon: ClipboardList },
+  { href: "/accounting",    label: "Contabilidad", icon: BookOpen },
+  { href: "/crm",           label: "CRM",          icon: Users2 },
+  { href: "/users",         label: "Usuarios",     icon: Users },
+  { href: "/configuracion", label: "Configuración",icon: Settings, divider: true },
 ];
 
-interface Props { collapsed?: boolean; onToggle?: () => void; }
-
-export default function Sidebar({ collapsed, onToggle }: Props) {
+export default function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { leftCollapsed, toggleLeft } = useLayout();
 
   return (
     <aside
       className={clsx(
-        "flex flex-col h-full bg-black/30 backdrop-blur-xl border-r border-white/10 transition-all duration-300",
-        collapsed ? "w-16" : "w-60"
+        "portal-panel flex flex-col h-full border-r",
+        "transition-[width] duration-300 ease-in-out shrink-0",
+        leftCollapsed ? "w-14" : "w-60"
       )}
     >
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-white/10">
-        <div className="w-9 h-9 rounded-xl bg-blue-600/30 border border-blue-500/40 flex items-center justify-center shrink-0">
-          <ShoppingCart className="w-5 h-5 text-blue-400" />
+      {/* ── Brand header ──────────────────────────────────── */}
+      <div
+        className={clsx(
+          "portal-divider flex items-center border-b",
+          leftCollapsed ? "justify-center px-0 py-4" : "gap-3 px-4 py-4"
+        )}
+      >
+        <div className="portal-panel-icon w-8 h-8 rounded-lg flex items-center justify-center shrink-0">
+          <ShoppingCart className="w-4 h-4" />
         </div>
-        {!collapsed && (
-          <div className="overflow-hidden">
-            <p className="text-white font-bold text-sm leading-tight">ShoppingCart</p>
-            <p className="text-slate-500 text-xs">Dashboard</p>
+
+        {!leftCollapsed && (
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <p className="portal-brand-text font-semibold text-sm leading-tight truncate">
+              Portal Controller
+            </p>
+            <p className="portal-brand-sub text-[11px] truncate">v1.0</p>
           </div>
         )}
-        <button
-          onClick={onToggle}
-          className="ml-auto text-slate-500 hover:text-slate-300 transition-colors"
-        >
-          <ChevronRight className={clsx("w-4 h-4 transition-transform", collapsed && "rotate-180")} />
-        </button>
+
+        {!leftCollapsed && (
+          <button
+            onClick={toggleLeft}
+            title="Colapsar panel"
+            className="portal-toggle shrink-0 w-6 h-6 flex items-center justify-center"
+          >
+            <ChevronRight className="w-3.5 h-3.5 rotate-180" />
+          </button>
+        )}
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-        {NAV.map(({ href, label, icon: Icon }) => {
+      {/* Expand button (collapsed state) */}
+      {leftCollapsed && (
+        <div className="portal-divider flex justify-center py-2 border-b">
+          <button
+            onClick={toggleLeft}
+            title="Expandir panel"
+            className="portal-toggle w-7 h-7 flex items-center justify-center"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* ── Navigation ────────────────────────────────────── */}
+      <nav
+        className={clsx(
+          "flex-1 py-3 overflow-y-auto space-y-0.5",
+          leftCollapsed ? "px-1.5" : "px-2"
+        )}
+      >
+        {!leftCollapsed && (
+          <p className="portal-section-lbl text-[10px] font-semibold uppercase tracking-widest px-3 mb-2">
+            Módulos
+          </p>
+        )}
+
+        {NAV.map(({ href, label, icon: Icon, divider }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
-            <Link
-              key={href}
-              href={href}
-              className={clsx(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
-                active
-                  ? "bg-blue-600/20 text-blue-300 border border-blue-500/20"
-                  : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+            <div key={href}>
+              {divider && (
+                <div className={clsx("portal-divider border-t my-2", leftCollapsed ? "" : "mx-1")} />
               )}
-            >
-              <Icon className="w-5 h-5 shrink-0" />
-              {!collapsed && <span>{label}</span>}
-              {!collapsed && active && (
-                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400" />
-              )}
-            </Link>
+              <Link
+                href={href}
+                title={leftCollapsed ? label : undefined}
+                className={clsx(
+                  "portal-nav-item gap-3",
+                  leftCollapsed ? "justify-center px-0 py-2.5" : "px-3 py-2.5",
+                  active ? "nav-active" : ""
+                )}
+              >
+                <Icon className={clsx("shrink-0", leftCollapsed ? "w-5 h-5" : "w-4 h-4")} />
+                {!leftCollapsed && <span className="flex-1 truncate">{label}</span>}
+                {!leftCollapsed && active && (
+                  <div className="w-1.5 h-1.5 rounded-full bg-current opacity-60 shrink-0" />
+                )}
+              </Link>
+            </div>
           );
         })}
       </nav>
 
-      {/* User & Logout */}
-      <div className="px-2 py-4 border-t border-white/10 space-y-1">
-        {!collapsed && user && (
-          <div className="px-3 py-2 rounded-xl bg-white/5 mb-2">
-            <p className="text-white text-xs font-medium truncate">
+      {/* ── User & Logout ─────────────────────────────────── */}
+      <div
+        className={clsx(
+          "portal-divider border-t py-3 space-y-1",
+          leftCollapsed ? "px-1.5" : "px-2"
+        )}
+      >
+        {!leftCollapsed && user && (
+          <div className="portal-user-card px-3 py-2 rounded-xl mb-2">
+            <p className="portal-user-text text-xs font-medium truncate">
               {user.firstName} {user.lastName}
             </p>
-            <p className="text-slate-500 text-xs truncate">{user.email}</p>
+            <p className="portal-user-email text-[11px] truncate">{user.email}</p>
           </div>
         )}
         <button
           onClick={logout}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm text-slate-400
-                     hover:bg-red-600/10 hover:text-red-400 transition-all duration-200"
+          title={leftCollapsed ? "Cerrar sesión" : undefined}
+          className={clsx(
+            "portal-nav-item gap-3 text-red-400 hover:!bg-red-500/10 hover:!text-red-400",
+            leftCollapsed ? "justify-center px-0 py-2.5 w-full" : "w-full px-3 py-2.5"
+          )}
         >
-          <LogOut className="w-5 h-5 shrink-0" />
-          {!collapsed && <span>Cerrar sesión</span>}
+          <LogOut className={clsx("shrink-0", leftCollapsed ? "w-5 h-5" : "w-4 h-4")} />
+          {!leftCollapsed && <span>Cerrar sesión</span>}
         </button>
       </div>
     </aside>

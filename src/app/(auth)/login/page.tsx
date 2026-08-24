@@ -42,7 +42,7 @@ export default function LoginPage() {
           <div className="w-16 h-16 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center mb-4">
             <ShoppingCart className="w-8 h-8 text-blue-400" />
           </div>
-          <h1 className="text-3xl font-bold text-white">Bienvenido</h1>
+          <h1 className="text-3xl font-bold text-white">Portal Controller</h1>
           <p className="text-slate-400 text-sm mt-1">Panel de Administración</p>
         </div>
 
@@ -104,7 +104,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-slate-500 mt-6">
-          ShoppingCart Dashboard &copy; 2026
+          Portal Controller &copy; 2026
         </p>
       </div>
     </div>

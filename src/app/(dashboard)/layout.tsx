@@ -3,35 +3,49 @@ import { useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { LayoutProvider } from "@/context/LayoutContext";
+import { BottomPanelProvider } from "@/context/BottomPanelContext";
 import Sidebar from "@/components/layout/Sidebar";
 import RightPanel from "@/components/layout/RightPanel";
+import BottomPanel from "@/components/layout/BottomPanel";
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <LayoutProvider>
-      {/*
-        Three-panel layout (inspired by Google AI Studio):
-        ┌──────────────┬─────────────────────────────┬──────────────┐
-        │   Sidebar    │   Top-bar + main content    │  Right panel │
-        │  (nav left)  │       (scrollable)          │  (settings)  │
-        └──────────────┴─────────────────────────────┴──────────────┘
-        Both side panels collapse independently.
-      */}
-      <div className="flex h-screen overflow-hidden">
-        {/* ── Left sidebar ──────────────────────────────── */}
-        <Sidebar />
+      <BottomPanelProvider>
+        {/*
+          Three-panel layout (inspired by Google AI Studio):
+          ┌──────────────┬─────────────────────────────┬──────────────┐
+          │   Sidebar    │   Header + upper content    │  Right panel │
+          │  (nav left)  ├─────────────────────────────┤  (settings)  │
+          │              │   Bottom panel (tabs)       │              │
+          └──────────────┴─────────────────────────────┴──────────────┘
+          Both side panels collapse independently.
+          Main center column splits vertically:
+            • Upper area — scrollable, renders the current page
+            • Bottom panel — resizable/collapsible, dynamic tabs per page
+        */}
+        <div className="flex h-screen overflow-hidden">
+          {/* ── Left sidebar ──────────────────────────────── */}
+          <Sidebar />
 
-        {/* ── Center column ─────────────────────────────── */}
-        <main className="flex-1 overflow-y-auto flex flex-col min-w-0">
-          {/* Each page renders its own <Header> as first child.
-              The Header component is sticky so it stays at the top
-              while the page content scrolls underneath. */}
-          {children}
-        </main>
+          {/* ── Center column ─────────────────────────────── */}
+          <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+            {/*
+              Upper scrollable area — each page renders its own <Header>
+              as its first child (sticky top-0 z-10).
+            */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {children}
+            </div>
 
-        {/* ── Right panel ───────────────────────────────── */}
-        <RightPanel />
-      </div>
+            {/* Bottom panel — registered by each page via useBottomPanel().setTabs() */}
+            <BottomPanel />
+          </main>
+
+          {/* ── Right panel ───────────────────────────────── */}
+          <RightPanel />
+        </div>
+      </BottomPanelProvider>
     </LayoutProvider>
   );
 }

@@ -12,6 +12,7 @@ import {
   Plus, Search, Package, RefreshCw, Pencil, Trash2, CheckCircle2, AlertTriangle,
   Loader2, XCircle, Archive, Layers, Check, X, ChevronUp, ChevronDown, Images, Settings2,
 } from "lucide-react";
+import { useSetBottomPanelTabs } from "@/context/BottomPanelContext";
 
 type DraftImage = { url: string; sortOrder: number };
 type DraftSpec = { key: string; value: string };
@@ -66,6 +67,7 @@ export default function ProductsPage() {
   const [skuCheck, setSkuCheck] = useState<SkuCheckState>({ status: "idle" });
   const skuDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const skuRequestSeq = useRef(0);
+  const setTabs = useSetBottomPanelTabs();
 
   const load = async () => {
     setLoading(true);
@@ -350,6 +352,29 @@ export default function ProductsPage() {
     )},
   ];
 
+  // ── Register products table in the bottom panel ─────────────────────────
+  useEffect(() => {
+    setTabs([
+      {
+        id: "catalogo",
+        label: "Catálogo",
+        icon: Package,
+        content: (
+          <DataTable
+            columns={columns}
+            data={filtered}
+            loading={loading}
+            keyExtractor={p => p.id}
+            emptyText="No se encontraron productos"
+            onRowClick={p => router.push(`/products/${p.id}`)}
+          />
+        ),
+      },
+    ]);
+    return () => setTabs([]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, loading, setTabs]);
+
   return (
     <div className="flex flex-col h-full">
       <Header title="Productos" subtitle="Gestión del catálogo de productos" />
@@ -395,13 +420,9 @@ export default function ProductsPage() {
           ))}
         </div>
 
-        {/* Table */}
-        <DataTable
-          columns={columns} data={filtered} loading={loading}
-          keyExtractor={p => p.id}
-          emptyText="No se encontraron productos"
-          onRowClick={p => router.push(`/products/${p.id}`)}
-        />
+        <p className="text-xs text-slate-600 px-1">
+          El catálogo completo está en el panel inferior ↓ — haz clic en un producto para ver su detalle.
+        </p>
       </div>
 
       {/* Product Modal */}

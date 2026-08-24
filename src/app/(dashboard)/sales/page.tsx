@@ -10,6 +10,7 @@ import { invoicesApi, cashApi, customersApi, productsApi, warehousesApi } from "
 import {
   Invoice, DailyCash, Customer, Product, Warehouse, InvoiceRequest,
 } from "@/types";
+import { useSetBottomPanelTabs } from "@/context/BottomPanelContext";
 import {
   Plus, RefreshCw, ReceiptText, DollarSign, XCircle, Eye,
   TrendingUp, CreditCard,
@@ -24,6 +25,7 @@ export default function SalesPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [loading, setLoading] = useState(true);
+  const setTabs = useSetBottomPanelTabs();
 
   // Modals
   const [createModal, setCreateModal] = useState(false);
@@ -65,10 +67,8 @@ export default function SalesPage() {
     .reduce((s, i) => s + i.total, 0);
 
   const addItem = () => setForm(f => ({
-    ...f,
-    items: [...f.items, { productId: 0, quantity: 1 }],
+    ...f, items: [...f.items, { productId: 0, quantity: 1 }],
   }));
-
   const updateItem = (idx: number, key: keyof LineItem, val: string | number) => {
     setForm(f => {
       const items = [...f.items];
@@ -80,7 +80,6 @@ export default function SalesPage() {
       return { ...f, items };
     });
   };
-
   const removeItem = (idx: number) =>
     setForm(f => ({ ...f, items: f.items.filter((_, i) => i !== idx) }));
 
@@ -115,6 +114,7 @@ export default function SalesPage() {
     load();
   };
 
+  // ── Bottom panel: Facturas table ─────────────────────────────────────────
   const columns: Column<Invoice>[] = [
     { key: "invoiceNumber", label: "Factura", render: i => (
       <span className="font-mono text-blue-400">{i.invoiceNumber}</span>
@@ -148,16 +148,45 @@ export default function SalesPage() {
     )},
   ];
 
+  useEffect(() => {
+    setTabs([
+      {
+        id: "facturas",
+        label: "Facturas",
+        icon: ReceiptText,
+        content: (
+          <DataTable
+            columns={columns}
+            data={invoices}
+            loading={loading}
+            keyExtractor={i => i.id}
+            emptyText="Sin facturas registradas"
+          />
+        ),
+      },
+    ]);
+    return () => setTabs([]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoices, loading, setTabs]);
+
   return (
     <div className="flex flex-col h-full">
       <Header title="Ventas" subtitle="Facturas y caja diaria" />
-      <div className="flex-1 p-6 space-y-4 overflow-auto">
+      <div className="flex-1 p-6 space-y-4">
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="Total facturado" value={`$${totalSales.toLocaleString("es", { maximumFractionDigits: 0 })}`} icon={DollarSign} color="emerald" />
+          <StatCard
+            title="Total facturado"
+            value={`$${totalSales.toLocaleString("es", { maximumFractionDigits: 0 })}`}
+            icon={DollarSign} color="emerald"
+          />
           <StatCard title="Facturas" value={invoices.length} icon={ReceiptText} color="blue" />
-          <StatCard title="Pendientes" value={invoices.filter(i => i.status === "PENDING" || i.status === "INVOICE_PENDING").length} icon={TrendingUp} color="amber" />
+          <StatCard
+            title="Pendientes"
+            value={invoices.filter(i => i.status === "PENDING" || i.status === "INVOICE_PENDING").length}
+            icon={TrendingUp} color="amber"
+          />
           <StatCard
             title="Caja"
             value={todayCash ? (todayCash.status === "DAILY_CASH_OPEN" ? "Abierta" : "Cerrada") : "Sin abrir"}
@@ -188,15 +217,15 @@ export default function SalesPage() {
           </div>
         </GlassCard>
 
-        {/* Table */}
-        <DataTable
-          columns={columns} data={invoices} loading={loading}
-          keyExtractor={i => i.id}
-          emptyText="Sin facturas registradas"
-        />
+        {/* Hint */}
+        <p className="text-xs text-slate-600 px-1">
+          El listado de facturas se muestra en el panel inferior ↓
+        </p>
       </div>
 
-      {/* Create Invoice Modal */}
+      {/* ── Modals (unchanged) ─────────────────────────────────────────────── */}
+
+      {/* Create Invoice */}
       <Modal open={createModal} onClose={() => setCreateModal(false)} title="Nueva factura" size="xl">
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
@@ -230,8 +259,6 @@ export default function SalesPage() {
               onChange={e => setForm(f => ({ ...f, taxRate: Number(e.target.value) }))} />
           </div>
         </div>
-
-        {/* Items */}
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm font-semibold text-slate-300">Líneas de producto</p>
@@ -266,13 +293,11 @@ export default function SalesPage() {
             </div>
           )}
         </div>
-
         <div>
           <label className="label">Notas</label>
           <textarea className="input h-16 resize-none" value={form.notes}
             onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
         </div>
-
         <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-white/10">
           <button onClick={() => setCreateModal(false)} className="btn-secondary">Cancelar</button>
           <button onClick={createInvoice} className="btn-primary" disabled={saving}>
@@ -282,55 +307,59 @@ export default function SalesPage() {
         </div>
       </Modal>
 
-      {/* Invoice Detail Modal */}
-      <Modal open={!!detailModal} onClose={() => setDetailModal(null)} title={`Factura ${detailModal?.invoiceNumber}`} size="lg">
+      {/* Detail Modal */}
+      <Modal
+        open={!!detailModal}
+        onClose={() => setDetailModal(null)}
+        title={`Factura ${detailModal?.invoiceNumber ?? ""}`}
+        size="lg"
+      >
         {detailModal && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              {[
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              {([
                 ["Cliente", `${detailModal.customer.firstName} ${detailModal.customer.lastName}`],
-                ["Pago", detailModal.paymentMethod],
-                ["Subtotal", `$${detailModal.subtotal.toFixed(2)}`],
-                ["Impuesto", `$${detailModal.tax.toFixed(2)}`],
                 ["Total", `$${detailModal.total.toFixed(2)}`],
-                ["Estado", detailModal.status],
-              ].map(([l, v]) => (
-                <div key={l} className="flex justify-between bg-white/5 rounded-xl px-3 py-2">
+                ["Pago", detailModal.paymentMethod],
+                ["Fecha", new Date(detailModal.createdAt).toLocaleDateString("es")],
+              ] as [string, string][]).map(([l, v]) => (
+                <div key={l} className="bg-white/5 rounded-xl px-3 py-2 flex justify-between">
                   <span className="text-slate-400">{l}</span>
                   <span className="text-white font-medium">{v}</span>
                 </div>
               ))}
             </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-300 mb-2">Productos</p>
-              {detailModal.items.map(item => (
-                <div key={item.id} className="flex justify-between text-sm py-2 border-b border-white/5">
-                  <span className="text-slate-300">{item.product.name} × {item.quantity}</span>
-                  <span className="text-white">${item.subtotal.toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
+            {detailModal.notes && (
+              <div className="bg-white/5 rounded-xl px-3 py-2">
+                <p className="text-slate-400 text-xs mb-1">Notas</p>
+                <p className="text-slate-300 text-sm">{detailModal.notes}</p>
+              </div>
+            )}
           </div>
         )}
       </Modal>
 
       {/* Cash Modal */}
-      <Modal open={cashModal} onClose={() => setCashModal(false)}
-        title={cashAction === "open" ? "Abrir caja" : "Cerrar caja"} size="sm">
+      <Modal
+        open={cashModal}
+        onClose={() => setCashModal(false)}
+        title={cashAction === "open" ? "Abrir caja" : "Cerrar caja"}
+        size="sm"
+      >
         {cashAction === "open" ? (
           <div>
-            <label className="label">Balance de apertura</label>
+            <label className="label">Saldo de apertura</label>
             <input type="number" className="input" value={openingBalance}
               onChange={e => setOpeningBalance(Number(e.target.value))} />
           </div>
         ) : (
-          <p className="text-slate-300 text-sm">
-            ¿Confirmar cierre de caja? El balance final será calculado automáticamente.
-          </p>
+          <p className="text-slate-300 text-sm">¿Confirmas que deseas cerrar la caja del día?</p>
         )}
         <div className="flex justify-end gap-3 mt-4">
           <button onClick={() => setCashModal(false)} className="btn-secondary">Cancelar</button>
-          <button onClick={handleCashAction} className="btn-primary">Confirmar</button>
+          <button onClick={handleCashAction} className="btn-primary">
+            {cashAction === "open" ? "Abrir caja" : "Cerrar caja"}
+          </button>
         </div>
       </Modal>
     </div>

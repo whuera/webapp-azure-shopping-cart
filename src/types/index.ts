@@ -27,7 +27,9 @@ export interface CreateUserRequest {
 }
 
 // ── Products ──────────────────────────────────────────────────────────────────
-export interface CategoryGroup { id: number; name: string; }
+// `description` is the short blurb shown on each group's card on the portal
+// home (mobilpymes.store) — e.g. "Tintos, blancos, espumantes...".
+export interface CategoryGroup { id: number; name: string; description?: string; }
 export interface Category { id: number; name: string; group?: CategoryGroup; }
 export interface ProductImage { id: number; url: string; sortOrder?: number; }
 export interface Product {
@@ -258,4 +260,28 @@ export interface CrmQuote {
   discountAmount?: number; taxRate?: number;
   tax?: number; total: number;
   validUntil?: string; createdAt?: string;
+}
+
+// ── Comercios (tiendas registradas desde el portal mobilpymes.store) ──────────
+// Mirrors the backend `Store` / `StorePublicResponse` shape. The list endpoint
+// this page consumes (`GET /api/admin/stores`) doesn't exist yet on the backend
+// — see the request filed to track it.
+export interface Comercio {
+  id: number; customerId?: number;
+  name: string; description?: string;
+  logoUrl?: string; bannerUrl?: string;
+  whatsapp?: string; email?: string; telefono?: string;
+  contactPreferencia?: string; // WHATSAPP | EMAIL | TELEFONO
+  status?: string; // PENDING_REVIEW | ACTIVE | SUSPENDED
+  isOfficial?: boolean;
+  taxId?: string; legalName?: string; address?: string;
+  latitude?: number; longitude?: number;
+  sellingCategories?: string[];
+  businessType?: string;  // FABRICANTE | MAYORISTA | MINORISTA | DISTRIBUIDOR | IMPORTADOR
+  targetAudience?: string; // B2B | B2C | AMBOS
+  website?: string;
+  followersCount?: number; productsCount?: number;
+  createdAt?: string; updatedAt?: string;
+  // Datos del dueño del comercio — a incluir por el futuro endpoint admin.
+  ownerName?: string; ownerEmail?: string;
 }

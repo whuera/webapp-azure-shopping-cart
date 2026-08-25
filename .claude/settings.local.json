@@ -97,7 +97,30 @@
       "Bash(netstat -ano)",
       "Bash(taskkill:*)",
       "Bash(cmd:*)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" https://app-mcp-a5fa1b390712.herokuapp.com/v3/api-docs)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" https://app-mcp-a5fa1b390712.herokuapp.com/swagger-ui/index.html)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" https://app-mcp-a5fa1b390712.herokuapp.com/api/comercios)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" https://app-mcp-a5fa1b390712.herokuapp.com/api/merchants)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" https://app-mcp-a5fa1b390712.herokuapp.com/api/tenants)",
+      "Bash(curl -s -i https://app-mcp-a5fa1b390712.herokuapp.com/api/stores)",
+      "Bash(curl -s -i -X OPTIONS https://app-mcp-a5fa1b390712.herokuapp.com/api/stores)",
+      "Bash(curl -s -i https://app-mcp-a5fa1b390712.herokuapp.com/api/category-groups)",
+      "Bash(curl -s https://app-mcp-a5fa1b390712.herokuapp.com/api/stores/list)",
+      "Bash(curl -s \"https://app-mcp-a5fa1b390712.herokuapp.com/api/stores/list?page=0&size=10\")",
+      "Bash(curl -s -i -X OPTIONS https://app-mcp-a5fa1b390712.herokuapp.com/api/stores/list)",
+      "Bash(find /c -maxdepth 3 -iname \"*mcp*\" -type d)",
+      "Bash(grep -rl \"app-mcp\" /c/projects/Azure /c/projects/azure-app-shopping-cart /c/projects/WebPageMobilPymes 2>/dev/null | head -10 *)",
+      "Read(//c/projects/azure-app-shopping-cart/src/**)",
+      "Bash(find /c/projects/WebPageMobilPymes/WebPage -maxdepth 2 -not -path \"*/node_modules/*\" -not -path \"*/.git/*\" | head -60)",
+      "Bash(gh label *)",
+      "Bash(gh api *)",
+      "Bash(curl -s https://azure-app-shopping-cart-reload-225fb76523b0.herokuapp.com/api/category-groups)",
+      "Bash(curl -s -i https://azure-app-shopping-cart-reload-225fb76523b0.herokuapp.com/api/admin/stores)",
+      "Bash(curl -s https://app-mcp-a5fa1b390712.herokuapp.com/api/category-groups)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}\\\\n' https://app-mcp-a5fa1b390712.herokuapp.com/api/admin/stores)",
+      "Bash(curl -s -i -X OPTIONS https://azure-app-shopping-cart-reload-225fb76523b0.herokuapp.com/api/admin/stores/1/status)",
+      "Bash(git check-ignore *)"
     ]
   }
 }

@@ -55,11 +55,13 @@ export default function ProductsPage() {
   // Groups management modal
   const [groupModal, setGroupModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupDescription, setNewGroupDescription] = useState("");
   const [savingGroup, setSavingGroup] = useState(false);
   const [groupError, setGroupError] = useState<string | null>(null);
   // Inline edit state (ready for when backend supports PUT /api/category-groups/{id})
   const [editingGroupId, setEditingGroupId] = useState<number | null>(null);
   const [editingGroupName, setEditingGroupName] = useState("");
+  const [editingGroupDescription, setEditingGroupDescription] = useState("");
   // Product image gallery draft (local state, synced to backend on save)
   const [draftImages, setDraftImages] = useState<DraftImage[]>([]);
   // Specifications draft (key-value pairs)
@@ -251,10 +253,14 @@ export default function ProductsPage() {
     if (!newGroupName.trim()) return;
     setSavingGroup(true); setGroupError(null);
     try {
-      const res = await categoryGroupsApi.create({ name: newGroupName.trim() });
+      const res = await categoryGroupsApi.create({
+        name: newGroupName.trim(),
+        description: newGroupDescription.trim() || undefined,
+      });
       if (res.success) {
         setGroups(g => [...g, res.data]);
         setNewGroupName("");
+        setNewGroupDescription("");
       }
     } catch (err) {
       setGroupError(getErrorMessage(err));
@@ -267,7 +273,10 @@ export default function ProductsPage() {
     if (!editingGroupName.trim() || editingGroupId === null) return;
     setSavingGroup(true); setGroupError(null);
     try {
-      const res = await categoryGroupsApi.update(editingGroupId, editingGroupName.trim());
+      const res = await categoryGroupsApi.update(editingGroupId, {
+        name: editingGroupName.trim(),
+        description: editingGroupDescription.trim() || undefined,
+      });
       if (res.success) {
         setGroups(g => g.map(x => x.id === editingGroupId ? res.data : x));
         setEditingGroupId(null);
@@ -763,58 +772,79 @@ export default function ProductsPage() {
       {/* Groups Management Modal */}
       <Modal
         open={groupModal}
-        onClose={() => { setGroupModal(false); setNewGroupName(""); setGroupError(null); setEditingGroupId(null); }}
+        onClose={() => { setGroupModal(false); setNewGroupName(""); setNewGroupDescription(""); setGroupError(null); setEditingGroupId(null); }}
         title="Gestión de grupos"
         size="sm"
       >
         {/* Existing groups list */}
-        <div className="space-y-1 mb-4 max-h-56 overflow-y-auto">
+        <div className="space-y-1.5 mb-4 max-h-64 overflow-y-auto">
           {groups.length === 0 && (
             <p className="text-sm text-slate-500 text-center py-4">No hay grupos creados aún.</p>
           )}
           {groups.map(g => (
-            <div key={g.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
+            <div key={g.id} className="flex flex-col gap-1.5 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
               {editingGroupId === g.id ? (
                 <>
+                  <div className="flex items-center gap-2">
+                    <input
+                      className="input flex-1 py-1 text-sm"
+                      value={editingGroupName}
+                      onChange={e => setEditingGroupName(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Escape") setEditingGroupId(null); }}
+                      placeholder="Nombre"
+                      autoFocus
+                    />
+                    <button
+                      className="p-1 rounded text-emerald-400 hover:text-emerald-300 transition-colors"
+                      title="Guardar"
+                      onClick={saveGroupEdit}
+                      disabled={savingGroup || !editingGroupName.trim()}
+                    >
+                      {savingGroup ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    </button>
+                    <button
+                      className="p-1 rounded text-slate-400 hover:text-white transition-colors"
+                      onClick={() => setEditingGroupId(null)}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                   <input
-                    className="input flex-1 py-1 text-sm"
-                    value={editingGroupName}
-                    onChange={e => setEditingGroupName(e.target.value)}
+                    className="input py-1 text-xs"
+                    value={editingGroupDescription}
+                    onChange={e => setEditingGroupDescription(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter") saveGroupEdit(); if (e.key === "Escape") setEditingGroupId(null); }}
-                    autoFocus
+                    placeholder="Descripción corta (se muestra en la tarjeta del portal)"
+                    maxLength={140}
                   />
-                  <button
-                    className="p-1 rounded text-emerald-400 hover:text-emerald-300 transition-colors"
-                    title="Guardar"
-                    onClick={saveGroupEdit}
-                    disabled={savingGroup || !editingGroupName.trim()}
-                  >
-                    {savingGroup ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                  </button>
-                  <button
-                    className="p-1 rounded text-slate-400 hover:text-white transition-colors"
-                    onClick={() => setEditingGroupId(null)}
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
                 </>
               ) : (
                 <>
-                  <span className="flex-1 text-sm text-white">{g.name}</span>
-                  <button
-                    className="p-1 rounded text-slate-400 hover:text-blue-400 transition-colors"
-                    title="Editar nombre"
-                    onClick={() => { setEditingGroupId(g.id); setEditingGroupName(g.name); setGroupError(null); }}
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    className="p-1 rounded text-slate-400 hover:text-red-400 transition-colors"
-                    title="Eliminar grupo"
-                    onClick={() => deleteGroup(g)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <span className="flex-1 text-sm text-white">{g.name}</span>
+                    <button
+                      className="p-1 rounded text-slate-400 hover:text-blue-400 transition-colors"
+                      title="Editar grupo"
+                      onClick={() => {
+                        setEditingGroupId(g.id);
+                        setEditingGroupName(g.name);
+                        setEditingGroupDescription(g.description ?? "");
+                        setGroupError(null);
+                      }}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      className="p-1 rounded text-slate-400 hover:text-red-400 transition-colors"
+                      title="Eliminar grupo"
+                      onClick={() => deleteGroup(g)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {g.description || "Sin descripción — no se verá texto en la tarjeta del portal."}
+                  </p>
                 </>
               )}
             </div>
@@ -822,16 +852,24 @@ export default function ProductsPage() {
         </div>
 
         {/* Create new group */}
-        <div className="border-t border-white/10 pt-4">
+        <div className="border-t border-white/10 pt-4 space-y-2">
           <label className="label">Nuevo grupo</label>
+          <input
+            type="text"
+            className="input"
+            placeholder="Nombre (ej: Electrónica, Alimentos...)"
+            value={newGroupName}
+            onChange={e => setNewGroupName(e.target.value)}
+          />
           <div className="flex gap-2">
             <input
               type="text"
               className="input flex-1"
-              placeholder="Ej: Electrónica, Alimentos..."
-              value={newGroupName}
-              onChange={e => setNewGroupName(e.target.value)}
+              placeholder="Descripción corta para la tarjeta del portal"
+              value={newGroupDescription}
+              onChange={e => setNewGroupDescription(e.target.value)}
               onKeyDown={e => e.key === "Enter" && createGroup()}
+              maxLength={140}
             />
             <button
               onClick={createGroup}

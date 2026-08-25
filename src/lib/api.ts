@@ -8,6 +8,7 @@ import {
   AccountingPeriod, JournalEntry, FixedAsset, CrmCompany, CrmContact,
   CrmPipelineStage, CrmOpportunity, CrmActivity, CrmTicket, CrmQuote,
   Order, OrderTracking, CreateOrderRequest, UpdateOrderStatusRequest,
+  Comercio,
 } from "@/types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
@@ -138,12 +139,31 @@ export const productsApi = {
 export const categoryGroupsApi = {
   list: () =>
     http.get<Result<CategoryGroup[]>>("/api/category-groups").then(data),
-  create: (body: { name: string }) =>
+  create: (body: { name: string; description?: string }) =>
     http.post<Result<CategoryGroup>>("/api/category-groups", body).then(data),
-  update: (id: number, name: string) =>
-    http.put<Result<CategoryGroup>>(`/api/category-groups/${id}`, { name }).then(data),
+  update: (id: number, body: { name: string; description?: string }) =>
+    http.put<Result<CategoryGroup>>(`/api/category-groups/${id}`, body).then(data),
   delete: (id: number) =>
     http.delete<Result<string>>(`/api/category-groups/${id}`).then(data),
+};
+
+// ── Comercios (tiendas del portal mobilpymes.store) ───────────────────────────
+export const comerciosApi = {
+  list: (status?: string) =>
+    http.get<Result<Comercio[]>>("/api/admin/stores", { params: status ? { status } : {} }).then(data),
+  /**
+   * Cambia el status administrativo del comercio (PENDING_REVIEW | ACTIVE | SUSPENDED).
+   * "Validar" = ACTIVE, "Suspender" = SUSPENDED, "Reactivar/revertir" = ACTIVE/PENDING_REVIEW.
+   * NOTE: endpoint solicitado al backend — no existe todavía (ver issue de seguimiento).
+   */
+  updateStatus: (id: number, status: string) =>
+    http.put<Result<Comercio>>(`/api/admin/stores/${id}/status`, { status }).then(data),
+  /**
+   * Otorga o retira el sello "Oficial/Certificado" (independiente del status).
+   * NOTE: endpoint solicitado al backend — no existe todavía (ver issue de seguimiento).
+   */
+  setOfficial: (id: number, isOfficial: boolean) =>
+    http.put<Result<Comercio>>(`/api/admin/stores/${id}/official`, { isOfficial }).then(data),
 };
 
 // ── Customers ─────────────────────────────────────────────────────────────────

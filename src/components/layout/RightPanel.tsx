@@ -27,7 +27,7 @@ const INFO_ROWS = [
 ];
 
 export default function RightPanel() {
-  const { rightCollapsed, toggleRight } = useLayout();
+  const { leftCollapsed, rightCollapsed, toggleLeft, toggleRight } = useLayout();
 
   return (
     <aside
@@ -135,9 +135,12 @@ export default function RightPanel() {
               <p className="portal-section-lbl text-[10px] font-semibold uppercase tracking-widest px-2 mb-3">
                 Visibilidad de paneles
               </p>
+              <p className="text-[10px] portal-quick-sub px-2 mb-2 leading-snug">
+                Se recuerda la próxima vez que abras el panel.
+              </p>
               <div className="px-2 space-y-3">
-                <PanelToggleRow label="Panel de navegación"    active />
-                <PanelToggleRow label="Panel de configuración" active />
+                <PanelToggleRow label="Panel de navegación" active={!leftCollapsed} onToggle={toggleLeft} />
+                <PanelToggleRow label="Panel de configuración" active={!rightCollapsed} onToggle={toggleRight} />
               </div>
             </section>
 
@@ -178,9 +181,16 @@ export default function RightPanel() {
   );
 }
 
-function PanelToggleRow({ label, active }: { label: string; active?: boolean }) {
+function PanelToggleRow({ label, active, onToggle }: { label: string; active?: boolean; onToggle?: () => void }) {
   return (
-    <div className="flex items-center justify-between">
+    <button
+      type="button"
+      onClick={onToggle}
+      role="switch"
+      aria-checked={!!active}
+      title={active ? `Ocultar ${label.toLowerCase()}` : `Mostrar ${label.toLowerCase()}`}
+      className="flex items-center justify-between w-full text-left"
+    >
       <span className="portal-info-label text-xs">{label}</span>
       <div className={clsx(
         "w-9 h-5 rounded-full relative transition-colors duration-200",
@@ -191,6 +201,6 @@ function PanelToggleRow({ label, active }: { label: string; active?: boolean }) 
           active ? "right-0.5 bg-blue-500" : "left-0.5 bg-gray-400"
         )} />
       </div>
-    </div>
+    </button>
   );
 }

@@ -130,7 +130,7 @@ export default function ComerciosPage() {
   };
 
   const columns: Column<Comercio>[] = [
-    { key: "name", label: "Comercio", render: c => (
+    { key: "name", label: "Comercio", sortAccessor: c => c.name ?? "", render: c => (
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 rounded-xl bg-blue-600/20 border border-blue-500/20 flex items-center justify-center text-blue-300 text-xs font-bold overflow-hidden">
           {c.logoUrl
@@ -143,13 +143,13 @@ export default function ComerciosPage() {
         </div>
       </div>
     )},
-    { key: "owner", label: "Propietario", render: c => (
+    { key: "owner", label: "Propietario", sortAccessor: c => c.ownerName ?? "", exportValue: c => c.ownerName ?? "—", render: c => (
       <div>
         <p className="text-slate-300 text-sm">{c.ownerName ?? "—"}</p>
         {c.ownerEmail && <p className="text-slate-500 text-xs">{c.ownerEmail}</p>}
       </div>
     )},
-    { key: "categorias", label: "Rubros", render: c => (
+    { key: "categorias", label: "Rubros", exportValue: c => (c.sellingCategories ?? []).join(", ") || "—", render: c => (
       <div className="flex gap-1 flex-wrap max-w-xs">
         {(c.sellingCategories ?? []).slice(0, 3).map(cat => (
           <span key={cat} className="text-xs px-1.5 py-0.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
@@ -159,18 +159,18 @@ export default function ComerciosPage() {
         {!c.sellingCategories?.length && <span className="text-slate-600 text-xs">—</span>}
       </div>
     )},
-    { key: "status", label: "Estado", render: c => (
+    { key: "status", label: "Estado", sortAccessor: c => STATUS_LABEL[c.status ?? ""] ?? c.status ?? "", exportValue: c => `${STATUS_LABEL[c.status ?? ""] ?? c.status ?? "—"}${c.isOfficial ? " · Certificado" : ""}`, render: c => (
       <div className="flex items-center gap-1.5 flex-wrap">
         <Badge label={STATUS_LABEL[c.status ?? ""] ?? c.status ?? "—"} variant={comercioStatusVariant(c.status)} />
         {c.isOfficial && <Badge label="Certificado" variant="purple" />}
       </div>
     )},
-    { key: "createdAt", label: "Registrado", render: c => (
+    { key: "createdAt", label: "Registrado", sortAccessor: c => c.createdAt ?? "", exportValue: c => c.createdAt ? new Date(c.createdAt).toLocaleDateString("es-EC") : "—", render: c => (
       <span className="text-slate-400 text-xs">
         {c.createdAt ? new Date(c.createdAt).toLocaleDateString("es-EC") : "—"}
       </span>
     )},
-    { key: "actions", label: "", render: c => renderActions(c, "table") },
+    { key: "actions", label: "", sortable: false, render: c => renderActions(c, "table") },
   ];
 
   // ── Bottom panel tabs ────────────────────────────────────────────────────
@@ -186,6 +186,11 @@ export default function ComerciosPage() {
             keyExtractor={c => c.id}
             emptyText={loadError ? "No se pudo cargar el listado" : "No se encontraron comercios"}
             onRowClick={setDetail}
+            showIndex
+            showTotalCount
+            pageSize={10}
+            exportFileName="comercios"
+            exportTitle="Listado de comercios"
           />
         ),
       },

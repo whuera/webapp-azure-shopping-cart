@@ -31,6 +31,11 @@ http.interceptors.request.use((config) => {
   const token = Cookies.get("token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+    console.log("✅ Token added to request:", {
+      url: config.url,
+      method: config.method,
+      hasAuth: !!config.headers.Authorization,
+    });
   } else {
     console.warn("⚠️ No token found in cookies for request:", config.url);
   }

@@ -23,23 +23,24 @@ if (typeof window !== "undefined") {
 
 const http: AxiosInstance = axios.create({
   baseURL: BASE_URL,
-  headers: { "Content-Type": "application/json" },
-  // Note: withCredentials removed - we use Authorization header instead
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
+// Add token to every request via interceptor
 http.interceptors.request.use((config) => {
   const token = Cookies.get("token");
+
   if (token) {
-    // Use bracket notation for more reliable header assignment
-    config.headers["Authorization"] = `Bearer ${token}`;
-    console.log("✅ Token added to Authorization header:", {
-      url: config.url,
-      method: config.method,
-      header: config.headers["Authorization"]?.substring(0, 30) + "...",
-    });
+    // Set Authorization header directly on the common headers
+    http.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    config.headers.Authorization = `Bearer ${token}`;
+    console.log("✅ Authorization header set for", config.url);
   } else {
-    console.warn("⚠️ No token found in cookies for request:", config.url);
+    console.warn("⚠️ No token in cookies for:", config.url);
   }
+
   return config;
 });
 

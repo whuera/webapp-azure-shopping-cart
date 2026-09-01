@@ -24,7 +24,7 @@ if (typeof window !== "undefined") {
 const http: AxiosInstance = axios.create({
   baseURL: BASE_URL,
   headers: { "Content-Type": "application/json" },
-  withCredentials: true, // ✅ CRITICAL: Allow cookies in cross-domain requests
+  // Note: withCredentials removed - we use Authorization header instead
 });
 
 http.interceptors.request.use((config) => {

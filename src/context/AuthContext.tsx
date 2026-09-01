@@ -47,13 +47,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchMe]);
 
   const login = (res: LoginResponse) => {
-    Cookies.set("token", res.token, { expires: 1 });
+    // Save token to cookies with 1 day expiration
+    Cookies.set("token", res.token, { expires: 1, path: "/" });
     setToken(res.token);
     setUser({
       id: res.userId, email: res.email,
       firstName: res.firstName, lastName: res.lastName,
       userType: res.userType, status: "ACTIVE",
       roles: res.roles,
+    });
+    // Verify token was saved
+    const saved = Cookies.get("token");
+    console.log("✅ Token saved to cookies:", {
+      saved: !!saved,
+      matches: saved === res.token,
     });
     router.push("/dashboard");
   };

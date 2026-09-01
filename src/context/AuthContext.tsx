@@ -48,7 +48,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = (res: LoginResponse) => {
     // Save token to cookies with 1 day expiration
-    Cookies.set("token", res.token, { expires: 1, path: "/" });
+    // sameSite: "none" + secure: true required for cross-domain cookies
+    Cookies.set("token", res.token, {
+      expires: 1,
+      path: "/",
+      sameSite: "none",
+      secure: true,
+    });
     setToken(res.token);
     setUser({
       id: res.userId, email: res.email,

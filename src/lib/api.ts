@@ -30,11 +30,12 @@ const http: AxiosInstance = axios.create({
 http.interceptors.request.use((config) => {
   const token = Cookies.get("token");
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-    console.log("✅ Token added to request:", {
+    // Use bracket notation for more reliable header assignment
+    config.headers["Authorization"] = `Bearer ${token}`;
+    console.log("✅ Token added to Authorization header:", {
       url: config.url,
       method: config.method,
-      hasAuth: !!config.headers.Authorization,
+      header: config.headers["Authorization"]?.substring(0, 30) + "...",
     });
   } else {
     console.warn("⚠️ No token found in cookies for request:", config.url);

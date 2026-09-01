@@ -13,16 +13,48 @@ import {
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
+// Debug: log API configuration
+if (typeof window !== "undefined") {
+  console.log("🔧 API Configuration:", {
+    BASE_URL,
+    hasToken: !!Cookies.get("token"),
+  });
+}
+
 const http: AxiosInstance = axios.create({
   baseURL: BASE_URL,
   headers: { "Content-Type": "application/json" },
+  withCredentials: true, // ✅ CRITICAL: Allow cookies in cross-domain requests
 });
 
 http.interceptors.request.use((config) => {
   const token = Cookies.get("token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    console.warn("⚠️ No token found in cookies for request:", config.url);
+  }
   return config;
 });
+
+http.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      const token = Cookies.get("token");
+      console.error("❌ 401 Unauthorized:", {
+        url: error.config?.url,
+        method: error.config?.method,
+        hasToken: !!token,
+        tokenLength: token?.length ?? 0,
+      });
+
+      // Clear invalid token to force relogin
+      Cookies.remove("token");
+    }
+    return Promise.reject(error);
+  }
+);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const data = <T>(res: AxiosResponse<Result<T>>) => res.data;

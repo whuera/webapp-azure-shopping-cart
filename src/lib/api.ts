@@ -42,11 +42,25 @@ http.interceptors.response.use(
   async (error) => {
     if (error.response?.status === 401) {
       const token = Cookies.get("token");
-      console.error("❌ 401 Unauthorized:", {
-        url: error.config?.url,
+      console.error("🔴 [401 UNAUTHORIZED] Detailed Response from Backend:", {
+        endpoint: error.config?.url,
         method: error.config?.method,
-        hasToken: !!token,
-        tokenLength: token?.length ?? 0,
+        requestHeaders: {
+          authorization: error.config?.headers?.Authorization ? `Bearer ${error.config.headers.Authorization.substring(0, 50)}...` : "MISSING",
+          contentType: error.config?.headers?.["Content-Type"],
+        },
+        tokenInfo: {
+          hasToken: !!token,
+          tokenLength: token?.length ?? 0,
+        },
+        responseStatus: error.response?.status,
+        responseStatusText: error.response?.statusText,
+        responseBody: error.response?.data,
+        responseHeaders: {
+          contentType: error.response?.headers["content-type"],
+          xRequestId: error.response?.headers["x-request-id"],
+          xErrorMessage: error.response?.headers["x-error-message"],
+        },
       });
 
       // Clear invalid token to force relogin

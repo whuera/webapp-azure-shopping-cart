@@ -29,7 +29,7 @@ export interface CreateUserRequest {
 // ── Products ──────────────────────────────────────────────────────────────────
 // `description` is the short blurb shown on each group's card on the portal
 // home (mobilpymes.store) — e.g. "Tintos, blancos, espumantes...".
-export interface CategoryGroup { id: number; name: string; description?: string; }
+export interface CategoryGroup { id: number; name: string; description?: string; imageUrl?: string | null; }
 export interface Category { id: number; name: string; group?: CategoryGroup; }
 export interface ProductImage { id: number; url: string; sortOrder?: number; }
 export interface Product {

@@ -192,9 +192,9 @@ export const productsApi = {
 export const categoryGroupsApi = {
   list: () =>
     http.get<Result<CategoryGroup[]>>("/api/category-groups").then(data),
-  create: (body: { name: string; description?: string }) =>
+  create: (body: { name: string; description?: string; imageUrl?: string }) =>
     http.post<Result<CategoryGroup>>("/api/category-groups", body).then(data),
-  update: (id: number, body: { name: string; description?: string }) =>
+  update: (id: number, body: { name?: string; description?: string; imageUrl?: string }) =>
     http.put<Result<CategoryGroup>>(`/api/category-groups/${id}`, body).then(data),
   delete: (id: number) =>
     http.delete<Result<string>>(`/api/category-groups/${id}`).then(data),

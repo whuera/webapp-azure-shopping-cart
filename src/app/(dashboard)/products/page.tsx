@@ -56,12 +56,14 @@ export default function ProductsPage() {
   const [groupModal, setGroupModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupDescription, setNewGroupDescription] = useState("");
+  const [newGroupImageUrl, setNewGroupImageUrl] = useState("");
   const [savingGroup, setSavingGroup] = useState(false);
   const [groupError, setGroupError] = useState<string | null>(null);
   // Inline edit state (ready for when backend supports PUT /api/category-groups/{id})
   const [editingGroupId, setEditingGroupId] = useState<number | null>(null);
   const [editingGroupName, setEditingGroupName] = useState("");
   const [editingGroupDescription, setEditingGroupDescription] = useState("");
+  const [editingGroupImageUrl, setEditingGroupImageUrl] = useState("");
   // Product image gallery draft (local state, synced to backend on save)
   const [draftImages, setDraftImages] = useState<DraftImage[]>([]);
   // Specifications draft (key-value pairs)
@@ -256,11 +258,13 @@ export default function ProductsPage() {
       const res = await categoryGroupsApi.create({
         name: newGroupName.trim(),
         description: newGroupDescription.trim() || undefined,
+        imageUrl: newGroupImageUrl.trim() || undefined,
       });
       if (res.success) {
         setGroups(g => [...g, res.data]);
         setNewGroupName("");
         setNewGroupDescription("");
+        setNewGroupImageUrl("");
       }
     } catch (err) {
       setGroupError(getErrorMessage(err));
@@ -276,6 +280,7 @@ export default function ProductsPage() {
       const res = await categoryGroupsApi.update(editingGroupId, {
         name: editingGroupName.trim(),
         description: editingGroupDescription.trim() || undefined,
+        imageUrl: editingGroupImageUrl.trim(), // "" limpia la imagen; el backend ignora null
       });
       if (res.success) {
         setGroups(g => g.map(x => x.id === editingGroupId ? res.data : x));
@@ -772,7 +777,7 @@ export default function ProductsPage() {
       {/* Groups Management Modal */}
       <Modal
         open={groupModal}
-        onClose={() => { setGroupModal(false); setNewGroupName(""); setNewGroupDescription(""); setGroupError(null); setEditingGroupId(null); }}
+        onClose={() => { setGroupModal(false); setNewGroupName(""); setNewGroupDescription(""); setNewGroupImageUrl(""); setGroupError(null); setEditingGroupId(null); }}
         title="Gestión de grupos"
         size="sm"
       >
@@ -817,10 +822,21 @@ export default function ProductsPage() {
                     placeholder="Descripción corta (se muestra en la tarjeta del portal)"
                     maxLength={140}
                   />
+                  <input
+                    className="input py-1 text-xs"
+                    value={editingGroupImageUrl}
+                    onChange={e => setEditingGroupImageUrl(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") saveGroupEdit(); if (e.key === "Escape") setEditingGroupId(null); }}
+                    placeholder="URL de imagen del grupo (https://...)"
+                  />
                 </>
               ) : (
                 <>
                   <div className="flex items-center gap-2">
+                    {g.imageUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={g.imageUrl} alt={g.name} className="w-8 h-8 rounded object-cover shrink-0" />
+                    )}
                     <span className="flex-1 text-sm text-white">{g.name}</span>
                     <button
                       className="p-1 rounded text-slate-400 hover:text-blue-400 transition-colors"
@@ -829,6 +845,7 @@ export default function ProductsPage() {
                         setEditingGroupId(g.id);
                         setEditingGroupName(g.name);
                         setEditingGroupDescription(g.description ?? "");
+                        setEditingGroupImageUrl(g.imageUrl ?? "");
                         setGroupError(null);
                       }}
                     >
@@ -860,6 +877,13 @@ export default function ProductsPage() {
             placeholder="Nombre (ej: Electrónica, Alimentos...)"
             value={newGroupName}
             onChange={e => setNewGroupName(e.target.value)}
+          />
+          <input
+            type="text"
+            className="input"
+            placeholder="URL de imagen del grupo (opcional, https://...)"
+            value={newGroupImageUrl}
+            onChange={e => setNewGroupImageUrl(e.target.value)}
           />
           <div className="flex gap-2">
             <input

@@ -8,3 +8,6 @@ build
 .DS_Store
 push_error.txt
 coverage
+
+# Claude Code local settings
+.claude/settings.local.json

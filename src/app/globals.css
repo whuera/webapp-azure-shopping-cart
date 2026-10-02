@@ -23,6 +23,9 @@
     linear-gradient(160deg, #05060d 0%, #0b0d1c 50%, #060812 100%);
   --color-text: #f5f5f7;
 
+  /* Canvas grid behind everything */
+  --grid-line: rgba(255, 255, 255, 0.016);
+
   /* Shared glass material */
   --glass-blur:      blur(28px) saturate(140%);
   --glass-highlight: rgba(255, 255, 255, 0.22);
@@ -133,6 +136,8 @@
     radial-gradient(45vw 45vw at 10% 100%, rgba(255, 149, 0, 0.12) 0%, transparent 60%),
     linear-gradient(160deg, #f5f5f7 0%, #eef0f6 50%, #f5f5f7 100%);
   --color-text: #1d1d1f;
+
+  --grid-line: rgba(15, 23, 60, 0.022);
 
   --glass-blur:      blur(28px) saturate(140%);
   --glass-highlight: rgba(255, 255, 255, 0.90);
@@ -247,6 +252,24 @@ body {
   font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Workspace canvas: uniform 56px cells with one faint line tone,
+   fading out toward the edges. Decorative only — fixed, behind all content,
+   never intercepts clicks. Glass panels blur it; opaque cards cover it. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 56px 56px;
+  background-position: -1px -1px;
+  -webkit-mask-image: radial-gradient(ellipse 85% 80% at 50% 45%, #000 40%, transparent 100%);
+          mask-image: radial-gradient(ellipse 85% 80% at 50% 45%, #000 40%, transparent 100%);
 }
 
 ::selection { background: var(--focus-ring); }

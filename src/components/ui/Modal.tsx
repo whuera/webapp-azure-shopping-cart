@@ -32,7 +32,7 @@ export default function Modal({ open, onClose, title, children, size = "md" }: P
       {/* Dialog */}
       <div
         className={clsx(
-          "relative w-full glass shadow-2xl animate-slide-in",
+          "relative w-full glass glass-sheet animate-slide-in",
           sizes[size]
         )}
       >

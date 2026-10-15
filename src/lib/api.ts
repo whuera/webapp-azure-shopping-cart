@@ -11,7 +11,8 @@ import {
   Comercio,
 } from "@/types";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+// Same-origin: next.config.js proxies /api to the backend (BACKEND_URL).
+const BASE_URL = "";
 
 // Debug: log API configuration
 if (typeof window !== "undefined") {

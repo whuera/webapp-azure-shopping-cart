@@ -45,8 +45,7 @@ Cliente en `127.0.0.1:3307`, BD `shopping_cart`. Credenciales: `kubectl get secr
 
 ## Pendientes / riesgos
 
-1. **Workflows de Azure sin `NEXT_PUBLIC_API_URL`**: se fija en el build. Sin la variable, en producción `BASE_URL = ""` y la API apunta a la propia app de Azure. Añadirla en el paso de build de `.github/workflows/*.yml`.
-2. **Backend en HTTP plano**: el front en HTTPS causa contenido mixto, y las cookies `secure: true` no viajan. Probable causa de los 401 que se estaban depurando. Hace falta HTTPS en el LoadBalancer o un dominio con TLS.
+1. ~~`NEXT_PUBLIC_API_URL` en build~~ y 2. ~~contenido mixto HTTPS→HTTP~~: resuelto (2026-10-15). El login en Vercel fallaba porque el navegador bloqueaba `http://64.181.201.53` desde la página HTTPS. Ahora `next.config.js` hace proxy de `/api/*` al backend (variable de servidor `BACKEND_URL`, por defecto `http://64.181.201.53`) y el front llama siempre same-origin. `NEXT_PUBLIC_API_URL` ya no se usa. El tráfico Vercel→backend sigue en HTTP plano: poner TLS en el LoadBalancer sigue siendo recomendable.
 3. `src/components/layout/RightPanel.tsx` muestra "Azure SQL" fijo; la BD real es MySQL en OKE.
 4. Backend: `application.yml` tiene escritas credenciales de AWS RDS. Rotarlas y moverlas a variables de entorno.
 

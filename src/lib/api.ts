@@ -8,7 +8,7 @@ import {
   AccountingPeriod, JournalEntry, FixedAsset, CrmCompany, CrmContact,
   CrmPipelineStage, CrmOpportunity, CrmActivity, CrmTicket, CrmQuote,
   Order, OrderTracking, CreateOrderRequest, UpdateOrderStatusRequest,
-  Comercio,
+  Comercio, Entrega,
 } from "@/types";
 
 // Same-origin: next.config.js proxies /api to the backend (BACKEND_URL).
@@ -111,7 +111,11 @@ export function getErrorMessage(err: unknown): string {
     }
     // `data.error` (e.g. "Internal Server Error", "Bad Request") is Spring's
     // generic reason phrase, not a useful message for end users — ignore it
-    // and fall back to a friendly, status-based message instead.
+    // and fall back to a friendly, status-based message instead. Endpoints
+    // like /api/entregas reply `{ error: "<mensaje para el usuario>" }` with
+    // no `timestamp`: that one is meant to be shown.
+    const body = err.response?.data;
+    if (typeof body?.error === "string" && body.timestamp === undefined) return body.error;
     const status = err.response?.status;
     if (status === 409) return "Ya existe un registro con ese valor. Verifica los datos e intenta de nuevo.";
     if (status === 404) return "No se encontró el recurso solicitado.";
@@ -406,4 +410,24 @@ export const crmApi = {
     updateStatus: (id: number, status: string) =>
       http.put<Result<CrmQuote>>(`/api/crm/quotes/${id}/status`, { status }).then(data),
   },
+};
+
+/**
+ * Entregas de Orbix (backend PRs #57/#58). Sin envoltorio Result: devuelven el
+ * objeto directo y los errores como `{ error }` (ver getErrorMessage).
+ * Listado global y detalle: crm:read. Publicar, descartar y asignar tienda: crm:write.
+ */
+export const entregasApi = {
+  list: () => http.get<Entrega[]>("/api/entregas").then(r => r.data),
+  get: (id: number) => http.get<Entrega>(`/api/entregas/${id}`).then(r => r.data),
+  /** Todo o nada: suma las cajas de cada línea al inventario del producto (bodega por defecto). */
+  publicar: (id: number, lineas: { lineaId: number; productId: number }[]) =>
+    http.post<Entrega>(`/api/entregas/${id}/publicar`, { lineas }).then(r => r.data),
+  descartar: (id: number) => http.post<Entrega>(`/api/entregas/${id}/descartar`).then(r => r.data),
+  /** Solo si la entrega no tiene líneas publicadas (p. ej. las que llegaron con la clave global). */
+  asignarTienda: (id: number, storeId: number) =>
+    http.put<Entrega>(`/api/entregas/${id}/tienda`, { storeId }).then(r => r.data),
+  /** Productos de una tienda (público), para elegir a cuál suma cada línea. */
+  productosDeTienda: (storeId: number) =>
+    http.get<Result<Product[]>>(`/api/stores/${storeId}/products`).then(data),
 };

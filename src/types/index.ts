@@ -285,3 +285,40 @@ export interface Comercio {
   // Datos del dueño del comercio — a incluir por el futuro endpoint admin.
   ownerName?: string; ownerEmail?: string;
 }
+
+// ── Entregas de Orbix (backend PRs #57/#58) ──────────────────────────────────
+export type EntregaEstado = "recibido" | "publicada-parcial" | "publicada" | "descartada";
+
+export interface EntregaLinea {
+  id: number;
+  /** Código del producto en Orbix (naranjas, cacao). */
+  producto: string;
+  nombre: string;
+  cajas: number;
+  precioPorCaja: number;
+  subtotal: number;
+  /** Producto al que se sumaron las cajas; null = sin publicar. */
+  productId: number | null;
+  publicadaEn: string | null;
+  /** Producto elegido la última vez para este código (solo en el detalle). */
+  productoSugeridoId: number | null;
+}
+
+export interface Entrega {
+  id: number;
+  pedidoId: string;
+  entregaId: string;
+  confirmadaEn: string;
+  recibidoEn: string;
+  /** null = llegó con la clave global de Orbix: hay que asignarle tienda. */
+  storeId: number | null;
+  origenSistema: string;
+  escenario: string;
+  centroAcopio: string;
+  moneda: "CLP" | "USD";
+  totalCajas: number;
+  total: number;
+  estado: EntregaEstado;
+  lineas: EntregaLinea[];
+}
+

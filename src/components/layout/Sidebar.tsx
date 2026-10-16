@@ -6,7 +6,7 @@ import { useLayout } from "@/context/LayoutContext";
 import clsx from "clsx";
 import {
   LayoutDashboard, Package, Warehouse, ReceiptText,
-  BookOpen, Users2, Users, ShoppingCart, LogOut, ChevronRight, ClipboardList, Settings, Store,
+  BookOpen, Users2, Users, ShoppingCart, LogOut, ChevronRight, ClipboardList, Settings, Store, Truck,
 } from "lucide-react";
 
 type NavItem = { href: string; label: string; icon: React.ElementType; divider?: boolean };
@@ -20,6 +20,7 @@ const NAV: NavItem[] = [
   { href: "/accounting",    label: "Contabilidad", icon: BookOpen },
   { href: "/crm",           label: "CRM",          icon: Users2 },
   { href: "/comercios",     label: "Comercios",    icon: Store },
+  { href: "/entregas",      label: "Entregas Orbix", icon: Truck },
   { href: "/users",         label: "Usuarios",     icon: Users },
   { href: "/configuracion", label: "Configuración",icon: Settings, divider: true },
 ];

@@ -4,6 +4,10 @@ _Última actualización: 2026-10-01 (Mac) · rama `feat/apple-design` (sale de `
 
 ## Estado actual
 
+- `feat/crm-entregas-orbix` (2026-10-16, sale de `main`): nueva sección **Entregas Orbix** (`/entregas`). Muestra la cosecha que Orbix registra en el backend (`GET /api/entregas`, `crm:read`). Desde el detalle se asigna tienda a las entregas que llegaron con la clave global (`PUT /api/entregas/{id}/tienda`) y se publican las líneas como stock de productos de esa tienda (`POST /api/entregas/{id}/publicar`, `crm:write`). Depende de los PRs #57 y #58 del backend.
+  - `getErrorMessage` ahora muestra `data.error` cuando la respuesta no es el cuerpo genérico de Spring (sin `timestamp`), porque los endpoints de entregas responden `{ error: "<mensaje>" }`.
+  - Para probar en local con el backend en otro puerto: el backend solo acepta `Origin: http://localhost:3000`. Si el portal corre en otro puerto, el proxy de Next reenvía el `Origin` y el login da 403.
+
 - `feat/apple-design`: rediseño visual estilo Apple / Liquid Glass. Solo look and feel; estructura y lógica intactas.
   - Todo vive en tokens CSS de `src/app/globals.css` (temas oscuro y claro). Componentes sin cambios salvo una clase en `Modal.tsx` (`glass-sheet`).
   - Vidrio solo en la capa flotante (sidebar, panel derecho, header, panel inferior, modal). Las tarjetas (`.glass`) son opacas a propósito: la HIG de Apple no permite vidrio en el contenido.
